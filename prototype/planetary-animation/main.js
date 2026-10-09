@@ -96,7 +96,12 @@ const specs = [
 ];
 for (const [name, orbit, radius, color, angle, speed, description] of specs) {
   const mesh = rock(radius, color);
-  mesh.userData = { name, orbit, radius, angle, speed, description };
+  const source = orbit === 4.2 || name === 'Cinder' ? 'Redmine' : 'ClickUp';
+  mesh.userData = {
+    name, orbit, radius, angle, speed, description, source,
+    spinAngle: angle, baseColor: new THREE.Color(color),
+    status: speed ? 'in-progress' : 'not-started', transfer: null,
+  };
   mesh.rotation.set(random(), random(), random());
   planets.push(mesh);
   scene.add(mesh);
@@ -144,10 +149,51 @@ function select(planet) {
   $('selection').hidden = !planet;
   selectionRing.visible = !!planet;
   if (planet) {
-    $('planet-name').textContent = planet.userData.name;
-    $('planet-description').textContent = `${planet.userData.description}. Sample planet for this animation study.`;
+    refreshSelection();
   }
 }
+function refreshSelection() {
+  if (!selected) return;
+  const { name, source, status, transfer } = selected.userData;
+  const isWaiting = status === 'not-started';
+  const isLeaving = transfer?.kind === 'out';
+  const destination = source === 'Redmine' ? 'inner' : 'outer';
+  $('planet-name').textContent = name;
+  $('planet-status').textContent = transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
+  $('planet-status').classList.toggle('active', !isWaiting);
+  $('planet-description').textContent = `${source} · ${isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`}`;
+  $('enter-orbit').disabled = !!transfer;
+  $('enter-orbit').textContent = transfer ? isLeaving ? 'De-orbiting…' : 'Entering orbit…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
+  $('orbit-hint').textContent = transfer
+    ? `${isLeaving ? 'Slowing into the outer waiting ring' : `Moving into the ${source} orbit`}${paused ? ' · motion paused' : '…'}`
+    : isWaiting
+      ? `Start this sample task and join the ${destination} orbit.`
+      : 'Return this sample task to not started and coast into the outer waiting ring.';
+}
+$('enter-orbit').onclick = () => {
+  if (!selected || selected.userData.transfer) return;
+  const data = selected.userData;
+  const leaving = data.status === 'in-progress';
+  const targetOrbit = leaving ? 9.5 : data.source === 'Redmine' ? 4.2 : 7.1;
+  const orbitalSpeed = leaving ? 0 : data.source === 'Redmine' ? 0.048 : 0.03;
+  const targetColor = new THREE.Color(leaving ? 0x64789b : data.source === 'Redmine' ? 0x79bfff : 0xa2d3ff);
+  const fromPhase = data.angle + simulationTime * data.speed;
+  const fromSpeed = data.speed;
+  data.speed = orbitalSpeed;
+  data.status = 'in-progress';
+  data.transfer = {
+    fromOrbit: data.orbit, targetOrbit, fromPhase, fromSpeed,
+    kind: leaving ? 'out' : 'in', targetStatus: leaving ? 'not-started' : 'in-progress',
+    sweep: Math.PI / 2.5, elapsed: 0, duration: 6,
+    fromTint: selected.material.color.clone(),
+    targetTint: new THREE.Color().setRGB(
+      targetColor.r / data.baseColor.r,
+      targetColor.g / data.baseColor.g,
+      targetColor.b / data.baseColor.b,
+    ),
+  };
+  refreshSelection();
+};
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let down = null;
@@ -160,7 +206,7 @@ canvas.addEventListener('pointerup', e => {
   down = null;
 });
 $('clear').onclick = () => select(null);
-$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume motion' : 'Pause motion'; };
+$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume motion' : 'Pause motion'; refreshSelection(); };
 $('reset').onclick = () => { controls.reset(); select(null); };
 $('speed').oninput = e => { speed = Number(e.target.value); $('speed-value').textContent = `${speed.toFixed(1)}×`; };
 $('frame-limit').onchange = e => { frameLimit = Number(e.target.value); };
@@ -186,10 +232,33 @@ function updateScene(delta) {
   core.rotation.y = simulationTime*0.035;
   dustMesh.rotation.y = simulationTime*0.009;
   for (const planet of planets) {
-    const { orbit, angle, speed: orbitalSpeed } = planet.userData;
-    const phase = angle + simulationTime*orbitalSpeed;
+    const data = planet.userData;
+    let phase = data.angle + simulationTime * data.speed;
+    if (data.transfer) {
+      const transfer = data.transfer;
+      if (!paused) transfer.elapsed += delta * speed;
+      const progress = Math.min(transfer.elapsed / transfer.duration, 1);
+      // Curved transfers meet either ring tangentially, with zero radial velocity at the ends.
+      const eased = progress ** 3 * (10 - 15 * progress + 6 * progress ** 2);
+      const angularEase = progress * progress * (3 - 2 * progress);
+      const departureTangent = progress ** 3 - 2 * progress ** 2 + progress;
+      const arrivalTangent = progress ** 3 - progress ** 2;
+      phase = transfer.fromPhase + transfer.sweep * angularEase
+        + transfer.duration * transfer.fromSpeed * departureTangent
+        + transfer.duration * data.speed * arrivalTangent;
+      data.orbit = THREE.MathUtils.lerp(transfer.fromOrbit, transfer.targetOrbit, eased);
+      planet.material.color.lerpColors(transfer.fromTint, transfer.targetTint, eased);
+      if (progress === 1) {
+        // Preserve position and angular speed when ordinary orbiting takes over.
+        data.angle = phase - simulationTime * data.speed;
+        data.status = transfer.targetStatus;
+        data.transfer = null;
+        if (planet === selected) refreshSelection();
+      }
+    }
+    const { orbit } = data;
     planet.position.set(Math.cos(phase)*orbit,Math.sin(phase*2)*0.08,Math.sin(phase)*orbit);
-    planet.rotation.y = angle + simulationTime*0.09;
+    planet.rotation.y = data.spinAngle + simulationTime*0.09;
   }
   if (selected) {
     selectionRing.position.copy(selected.position);
