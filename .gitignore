@@ -1,0 +1,7 @@
+# Local coding agent configuration and memory
+/.wolf/
+/.opencode/
+/.claude/
+/.codex/
+/AGENTS.md
+/CLAUDE.md
