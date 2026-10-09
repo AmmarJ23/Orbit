@@ -5,3 +5,7 @@
 /.codex/
 /AGENTS.md
 /CLAUDE.md
+
+# Planetary animation prototype dependencies and build
+/prototype/planetary-animation/node_modules/
+/prototype/planetary-animation/dist/

@@ -6,7 +6,7 @@ Recorded on 9 October 2026.
 
 Build a private dashboard for one person that combines tasks from Redmine, ClickUp, and personal notes. The dashboard should support viewing tasks and updating external tasks directly, with updates close to live.
 
-No application stack, hosting provider, or implementation has been selected yet. The ideas below capture the discussion and proposed starting approach.
+The initial discussion below predates the platform decision. The locked direction recorded at the end of this document supersedes earlier proposals where they conflict.
 
 ## Task sources and API access
 
@@ -136,3 +136,36 @@ The initial suggestion was to start with read-only imports; the later discussion
 - [ClickUp webhooks](https://developer.clickup.com/docs/webhooks)
 - [ClickUp task updates](https://developer.clickup.com/reference/updatetask)
 - [ClickUp custom field updates](https://developer.clickup.com/reference/setcustomfieldvalue)
+
+## Locked platform direction — 9 October 2026
+
+User approved a local desktop companion built with Tauri and Three.js. Target the current Mac first, keeping a future Windows implementation feasible. No implementation is requested by this decision alone.
+
+### Daily use and window behavior
+
+- Primarily an enjoyable, continuously animated second-screen dashboard for glancing at tasks and noticing new assignments.
+- Launch manually, restore window placement, and usually run fullscreen. Allow hiding or minimizing when the screen is needed.
+- Closing the window keeps the application running, syncing and playing subtle sound alerts for new assignments. Explicit quitting ends the application.
+- New assignments receive a visual highlight and subtle sound. Updates should arrive as soon as practical, but strict real-time delivery is not required; urgent work is communicated separately.
+- Access away from the usual computer is not a requirement.
+
+### Data and integrations
+
+- Keep integration credentials and personal notes only on the user's computer. Use local persistence; no hosted backend is selected or required for the initial architecture.
+- Offline: show cached external tasks and allow personal-note edits. External task edits wait until connectivity returns; offline external-write queues are out of scope.
+- Earlier hosted-backend and webhook proposals are provisional. Choose a synchronization approach compatible with the local desktop architecture; assess polling first rather than assuming a public webhook receiver.
+- Redmine typically has fewer than 20 unfinished tasks. ClickUp may have more.
+- Allow hiding individual tasks and subtasks within Orbit. Hidden tasks stay hidden across source updates until manually revealed; hiding is a private display setting.
+- Viewing is the primary workflow. Earlier external-editing capability remains part of the product discussion; its first-version scope is not yet settled.
+
+### 3D and performance
+
+- Three.js renders low-poly planets with gentle, continuous movement around the centre.
+- Users can rotate around the system and select planets to inspect tasks. Zoom is secondary; free-flight exploration is not required.
+- Keep animation running while Orbit is visible, including when another application has focus.
+- Resource efficiency is a requirement. Provide explicit user controls for frame rate, rendering resolution, shadows and effects; do not silently downgrade visual quality.
+- Rendering can stop while hidden/minimized, independently of synchronization and sound alerts.
+- Before full application development, validate a representative fullscreen scene on the current Mac for sustained CPU/GPU use, memory and impact on normal work. The selected rendering approach must pass that practical check; no performance guarantee has been established.
+- Leave platform-specific window, credential-storage and background behavior behind clear boundaries, and test the scene in the relevant webviews before claiming Windows support.
+
+Next proposed implementation step: a small Tauri + Three.js rendering/performance prototype. UI framework, local storage library, packaging/distribution details and exact synchronization intervals remain undecided.
