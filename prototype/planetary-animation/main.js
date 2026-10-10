@@ -1,6 +1,7 @@
 // Throwaway animation study: can Orbit's gentle low-poly motion feel good on a second screen?
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createCompletionSystem } from './completion.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('space');
@@ -254,6 +255,9 @@ let simulationTime = 0;
 let selected = null;
 let speed = 1;
 let frameLimit = 60;
+const completionSystem = createCompletionSystem({ scene, rock, random, onChange: planet => {
+  if (planet === selected) refreshSelection();
+} });
 function showTestingTab(name) {
   for (const tabName of ['planets', 'motion']) {
     const active = tabName === name;
@@ -290,7 +294,7 @@ $('new-status').onchange = updatePlacementHint;
 function findOpenPhase(orbit) {
   const fullCircle = Math.PI * 2;
   const angles = planets
-    .filter(planet => (planet.userData.transfer?.targetOrbit ?? planet.userData.orbit) === orbit)
+    .filter(planet => !planet.userData.completion && planet.userData.status !== 'completed' && (planet.userData.transfer?.targetOrbit ?? planet.userData.orbit) === orbit)
     .map(planet => (Math.atan2(planet.position.z, planet.position.x) + fullCircle) % fullCircle)
     .sort((a, b) => a - b);
   if (!angles.length) return random() * fullCircle;
@@ -338,11 +342,21 @@ function select(planet) {
 }
 function refreshSelection() {
   if (!selected) return;
-  const { name, source, status, transfer, forming } = selected.userData;
+  const { name, source, status, transfer, forming, completion } = selected.userData;
   const isWaiting = status === 'not-started';
   const isLeaving = transfer?.kind === 'out';
   const destination = source === 'Redmine' ? 'inner' : 'outer';
   $('planet-name').textContent = name;
+  $('complete-planet').disabled = !!forming || !!transfer || !!completion || status === 'completed';
+  $('complete-planet').textContent = completion ? 'Completing…' : status === 'completed' ? 'Completed ✓' : 'Complete task ↗';
+  $('enter-orbit').hidden = !!completion || status === 'completed';
+  if (completion || status === 'completed') {
+    $('planet-status').textContent = completion ? 'Completing' : 'Completed';
+    $('planet-description').textContent = `${source} · ${completion ? 'Travelling to' : 'Settled in'} the completed system`;
+    const stageLabel = { approaching: 'Approaching the centre', circling: 'Circling the centre', stretching: 'Stretching under gravity', breaking: 'Breaking into dust', absorbing: 'Debris falling into the centre', emerging: 'Reassembling in the completed system' };
+    $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Approaching the centre'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit.`;
+    return;
+  }
   $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
   $('planet-status').classList.toggle('active', !isWaiting);
   $('planet-description').textContent = `${source} · ${isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`}`;
@@ -357,7 +371,7 @@ function refreshSelection() {
       : 'Return this sample task to not started and coast into the outer waiting ring.';
 }
 $('enter-orbit').onclick = () => {
-  if (!selected || selected.userData.transfer || selected.userData.forming) return;
+  if (!selected || selected.userData.transfer || selected.userData.forming || selected.userData.completion || selected.userData.status === 'completed') return;
   const data = selected.userData;
   const leaving = data.status === 'in-progress';
   const targetOrbit = leaving ? 9.5 : data.source === 'Redmine' ? 4.2 : 7.1;
@@ -380,6 +394,22 @@ $('enter-orbit').onclick = () => {
   };
   refreshSelection();
 };
+$('complete-planet').onclick = () => {
+  if (!selected) return;
+  // A lingering arrival tag must not follow a planet into its completion journey.
+  const arrival = arrivals.get(selected);
+  if (selected.userData.forming) return;
+  if (arrival) { arrival.tag.remove(); arrivals.delete(selected); }
+  completionSystem.complete([selected]);
+};
+$('complete-active').onclick = () => {
+  const active = planets.filter(planet => planet.userData.status === 'in-progress' && !planet.userData.forming && !planet.userData.transfer);
+  for (const planet of active) {
+    const arrival = arrivals.get(planet);
+    if (arrival) { arrival.tag.remove(); arrivals.delete(planet); }
+  }
+  completionSystem.complete(active);
+};
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let down = null;
@@ -388,7 +418,7 @@ canvas.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX-down.x,e.clientY-down.y)>5) return;
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
-  select(raycaster.intersectObjects(planets)[0]?.object ?? null);
+  select(raycaster.intersectObjects(planets.filter(planet => planet.visible && !planet.userData.completion && planet.userData.status !== 'completed'))[0]?.object ?? null);
   down = null;
 });
 $('clear').onclick = () => select(null);
@@ -420,6 +450,7 @@ function updateScene(delta) {
   dustMesh.rotation.y = simulationTime*0.009;
   for (const planet of planets) {
     const data = planet.userData;
+    if (data.completion || data.status === 'completed') continue;
     let phase = data.angle + simulationTime * data.speed;
     if (data.transfer) {
       const transfer = data.transfer;
@@ -448,6 +479,7 @@ function updateScene(delta) {
     planet.rotation.y = data.spinAngle + simulationTime*0.09;
   }
   if (selected) {
+    selectionRing.visible = selected.visible && selected.userData.status !== 'completed';
     selectionRing.position.copy(selected.position);
     selectionRing.quaternion.copy(camera.quaternion);
     selectionRing.scale.setScalar(selected.userData.radius * selected.scale.x);
@@ -465,9 +497,11 @@ function animate(now) {
   lastRender = now;
   updateScene(Math.min(elapsed/1000,0.1));
   updateFormations(Math.min(elapsed/1000,0.1));
+  completionSystem.update(Math.min(elapsed/1000,0.1), paused, speed);
   controls.update();
   updateArrivalTags();
   renderer.render(scene,camera);
+  completionSystem.render(renderer.getPixelRatio());
   frames++;
   if (now-statsStart >= 1000) {
     $('fps').textContent = `${Math.round(frames*1000/(now-statsStart))} fps`;
