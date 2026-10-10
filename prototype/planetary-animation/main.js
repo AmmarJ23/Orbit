@@ -83,6 +83,111 @@ for (let i = 0; i < 4; i++) {
   scene.add(halo);
 }
 const planets = [];
+const arrivals = new Map();
+const tagLayer = document.createElement('div');
+tagLayer.className = 'arrival-tags';
+tagLayer.setAttribute('aria-hidden', 'true');
+document.body.append(tagLayer);
+const projected = new THREE.Vector3();
+
+function fitArrivalTag(tag) {
+  const label = tag.querySelector('.tag-name');
+  label.style.width = 'max-content';
+  const measuredWidth = label.getBoundingClientRect().width;
+  const limit = Math.min(190, Math.max(24, innerWidth / 2 - 95));
+  const width = Math.ceil(Math.min(limit, measuredWidth));
+  label.style.removeProperty('width');
+  tag.style.setProperty('--name-width', `${width}px`);
+  tag.querySelector('.tag-brackets').setAttribute('d', `M 66 9 H 56 V 41 H 66 M ${width + 62} 9 H ${width + 72} V 41 H ${width + 62}`);
+}
+
+function beginFormation(planet) {
+  const count = 72;
+  const particles = new THREE.InstancedMesh(
+    new THREE.IcosahedronGeometry(0.055, 0),
+    new THREE.MeshStandardMaterial({ color: 0x79bfff, roughness: 1, flatShading: true, transparent: true, opacity: 0, depthWrite: false }),
+    count,
+  );
+  particles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  particles.frustumCulled = false;
+  const grains = Array.from({ length: count }, () => ({
+    angle: random() * Math.PI * 2, radius: 0.8 + random() * 1.25,
+    height: (random() - 0.5) * 0.65, size: 0.35 + random() * 1.1,
+    delay: random() * 0.22,
+  }));
+  scene.add(particles);
+  const tag = document.createElement('div');
+  tag.className = 'arrival-tag';
+  tag.style.opacity = '0';
+  // Only fixed markup goes through innerHTML; task names are always plain text.
+  tag.innerHTML = '<svg width="300" height="80" viewBox="0 0 300 80"><path class="tag-leader" d="M 0 70 L 38 25 L 55 25" pathLength="1"/><path class="tag-brackets"/></svg><span class="tag-name"></span>';
+  const label = tag.querySelector('.tag-name');
+  label.textContent = planet.userData.name;
+  tagLayer.append(tag);
+  fitArrivalTag(tag);
+  planet.scale.setScalar(0.001);
+  planet.userData.forming = true;
+  arrivals.set(planet, { elapsed: 0, duration: 3.5, tagDuration: 3, particles, grains, tag });
+}
+
+function updateFormations(delta) {
+  for (const [planet, arrival] of arrivals) {
+    if (!paused) arrival.elapsed += delta * speed;
+    const t = Math.min(arrival.elapsed / arrival.duration, 1);
+    if (t === 1) {
+      if (arrival.particles) {
+        planet.scale.setScalar(1);
+        scene.remove(arrival.particles);
+        arrival.particles.geometry.dispose();
+        arrival.particles.material.dispose();
+        arrival.particles = null;
+        planet.userData.forming = false;
+        if (planet === selected) refreshSelection();
+      }
+      if (arrival.elapsed >= arrival.duration + arrival.tagDuration) {
+        arrival.tag.remove();
+        arrivals.delete(planet);
+      }
+      continue;
+    }
+    const growth = THREE.MathUtils.smoothstep(t, 0.12, 0.86);
+    planet.scale.setScalar(Math.max(0.001, growth));
+    arrival.particles.position.copy(planet.position);
+    arrival.grains.forEach((grain, i) => {
+      const capture = THREE.MathUtils.smoothstep(t, grain.delay, 0.82 + grain.delay * 0.6);
+      const angle = grain.angle + arrival.elapsed * (0.65 + capture * 0.8);
+      const radius = grain.radius * (1 - capture) + planet.userData.radius * growth * 0.65;
+      dummy.position.set(Math.cos(angle) * radius, grain.height * (1 - capture), Math.sin(angle) * radius);
+      dummy.rotation.set(angle, angle * 0.7, grain.angle);
+      dummy.scale.setScalar(grain.size * Math.sin(Math.PI * Math.min(t / 0.15, 1) / 2) * (1 - capture));
+      dummy.updateMatrix();
+      arrival.particles.setMatrixAt(i, dummy.matrix);
+    });
+    arrival.particles.instanceMatrix.needsUpdate = true;
+    const fadeIn = THREE.MathUtils.smoothstep(arrival.elapsed, 0, 0.6);
+    arrival.particles.material.opacity = 0.8 * fadeIn * (1 - THREE.MathUtils.smoothstep(t, 0.75, 1));
+  }
+}
+
+function updateArrivalTags() {
+  for (const [planet, arrival] of arrivals) {
+    const t = THREE.MathUtils.clamp((arrival.elapsed - arrival.duration) / arrival.tagDuration, 0, 1);
+    projected.copy(planet.position).project(camera);
+    const x = (projected.x * 0.5 + 0.5) * innerWidth;
+    const y = (-projected.y * 0.5 + 0.5) * innerHeight;
+    const left = x > innerWidth / 2;
+    arrival.tag.classList.toggle('tag-left', left);
+    arrival.tag.style.transform = `translate(${x - (left ? 300 : 0)}px, ${y - 70}px)`;
+    arrival.tag.style.visibility = projected.z < -1 || projected.z > 1 ? 'hidden' : 'visible';
+    // Fold the timeline so departure exactly reverses the opening choreography.
+    // The middle holds the full name; opacity stays constant during retraction.
+    const reveal = Math.min(t, 1 - t) * 2;
+    arrival.tag.style.opacity = t > 0 && t < 1 ? '1' : '0';
+    arrival.tag.style.setProperty('--line', 1 - THREE.MathUtils.smoothstep(reveal, 0.08, 0.3));
+    arrival.tag.style.setProperty('--bracket', THREE.MathUtils.smoothstep(reveal, 0.25, 0.42));
+    arrival.tag.style.setProperty('--reveal', `${100 * (1 - THREE.MathUtils.smoothstep(reveal, 0.34, 0.56))}%`);
+  }
+}
 const specs = [
   ['Lyra', 4.2, 0.62, 0x79bfff, 2.3, 0.052, 'Redmine · inner orbit'],
   ['Vega', 4.2, 0.43, 0x4898d9, 5.4, 0.045, 'Redmine · inner orbit'],
@@ -94,17 +199,22 @@ const specs = [
   ['Echo', 9.5, 0.38, 0x465d7a, 0.1, 0, 'Not started · stationary'],
   ['Solace', 9.5, 0.53, 0x8095ac, 4.8, 0, 'Not started · stationary'],
 ];
-for (const [name, orbit, radius, color, angle, speed, description] of specs) {
+function createPlanet({ name, orbit, radius, color, angle, speed, source, phase = angle }) {
   const mesh = rock(radius, color);
-  const source = orbit === 4.2 || name === 'Cinder' ? 'Redmine' : 'ClickUp';
   mesh.userData = {
-    name, orbit, radius, angle, speed, description, source,
+    name, orbit, radius, angle, speed, source,
     spinAngle: angle, baseColor: new THREE.Color(color),
     status: speed ? 'in-progress' : 'not-started', transfer: null,
   };
   mesh.rotation.set(random(), random(), random());
+  mesh.position.set(Math.cos(phase) * orbit, Math.sin(phase * 2) * 0.08, Math.sin(phase) * orbit);
   planets.push(mesh);
   scene.add(mesh);
+  return mesh;
+}
+for (const [name, orbit, radius, color, angle, speed] of specs) {
+  const source = orbit === 4.2 || name === 'Cinder' ? 'Redmine' : 'ClickUp';
+  createPlanet({ name, orbit, radius, color, angle, speed, source });
 }
 const dustGeometry = new THREE.IcosahedronGeometry(0.08, 0);
 const dustMesh = new THREE.InstancedMesh(dustGeometry, new THREE.MeshStandardMaterial({color: 0x354563, roughness: 1, flatShading: true}), 110);
@@ -144,34 +254,110 @@ let simulationTime = 0;
 let selected = null;
 let speed = 1;
 let frameLimit = 60;
+function showTestingTab(name) {
+  for (const tabName of ['planets', 'motion']) {
+    const active = tabName === name;
+    $(`${tabName}-tab`).setAttribute('aria-selected', String(active));
+    $(`${tabName}-tab`).tabIndex = active ? 0 : -1;
+    $(`${tabName}-panel`).hidden = !active;
+  }
+}
+for (const name of ['planets', 'motion']) {
+  $(`${name}-tab`).onclick = () => showTestingTab(name);
+  $(`${name}-tab`).onkeydown = event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'planets' : event.key === 'End' ? 'motion' : name === 'planets' ? 'motion' : 'planets';
+    showTestingTab(next);
+    $(`${next}-tab`).focus();
+  };
+}
+$('clear-planet-form').onclick = () => {
+  $('planet-form').reset();
+  $('planet-added').textContent = '';
+  updatePlacementHint();
+  $('new-name').focus();
+};
+function updatePlacementHint() {
+  const active = $('new-status').value === 'in-progress';
+  const source = $('new-source').value;
+  $('placement-hint').textContent = active
+    ? `Starts in the ${source === 'Redmine' ? 'inner Redmine' : 'outer ClickUp'} orbit.`
+    : 'Starts on the outer waiting ring. Enter orbit whenever you’re ready.';
+}
+$('new-source').onchange = updatePlacementHint;
+$('new-status').onchange = updatePlacementHint;
+function findOpenPhase(orbit) {
+  const fullCircle = Math.PI * 2;
+  const angles = planets
+    .filter(planet => (planet.userData.transfer?.targetOrbit ?? planet.userData.orbit) === orbit)
+    .map(planet => (Math.atan2(planet.position.z, planet.position.x) + fullCircle) % fullCircle)
+    .sort((a, b) => a - b);
+  if (!angles.length) return random() * fullCircle;
+  let widestGap = -1;
+  let phase = 0;
+  for (let i = 0; i < angles.length; i++) {
+    const next = i + 1 < angles.length ? angles[i + 1] : angles[0] + fullCircle;
+    const gap = next - angles[i];
+    if (gap > widestGap) {
+      widestGap = gap;
+      phase = angles[i] + gap / 2;
+    }
+  }
+  return phase % fullCircle;
+}
+$('planet-form').onsubmit = event => {
+  event.preventDefault();
+  const name = $('new-name').value.trim();
+  if (!name) return;
+  const source = $('new-source').value;
+  const active = $('new-status').value === 'in-progress';
+  const orbit = active ? source === 'Redmine' ? 4.2 : 7.1 : 9.5;
+  const orbitalSpeed = active ? source === 'Redmine' ? 0.048 : 0.03 : 0;
+  const phase = findOpenPhase(orbit);
+  const planet = createPlanet({
+    name, source, orbit, phase,
+    radius: 0.38 + random() * 0.2,
+    color: active ? source === 'Redmine' ? 0x79bfff : 0xa2d3ff : 0x64789b,
+    angle: phase - simulationTime * orbitalSpeed,
+    speed: orbitalSpeed,
+  });
+  $('planet-added').textContent = `Added ${name} · ${source} · ${active ? 'In progress' : 'Not started'}`;
+  $('new-name').value = '';
+  beginFormation(planet);
+  select(planet);
+};
 function select(planet) {
   selected = planet;
   $('selection').hidden = !planet;
   selectionRing.visible = !!planet;
   if (planet) {
     refreshSelection();
+    if (matchMedia('(max-width: 700px)').matches) document.querySelector('.controls').open = false;
   }
 }
 function refreshSelection() {
   if (!selected) return;
-  const { name, source, status, transfer } = selected.userData;
+  const { name, source, status, transfer, forming } = selected.userData;
   const isWaiting = status === 'not-started';
   const isLeaving = transfer?.kind === 'out';
   const destination = source === 'Redmine' ? 'inner' : 'outer';
   $('planet-name').textContent = name;
-  $('planet-status').textContent = transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
+  $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
   $('planet-status').classList.toggle('active', !isWaiting);
   $('planet-description').textContent = `${source} · ${isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`}`;
-  $('enter-orbit').disabled = !!transfer;
-  $('enter-orbit').textContent = transfer ? isLeaving ? 'De-orbiting…' : 'Entering orbit…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
-  $('orbit-hint').textContent = transfer
+  $('enter-orbit').disabled = !!transfer || !!forming;
+  $('enter-orbit').textContent = forming ? 'Forming planet…' : transfer ? isLeaving ? 'De-orbiting…' : 'Entering orbit…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
+  $('orbit-hint').textContent = forming
+    ? `Dust is gathering into a new world${paused ? ' · motion paused' : '…'}`
+    : transfer
     ? `${isLeaving ? 'Slowing into the outer waiting ring' : `Moving into the ${source} orbit`}${paused ? ' · motion paused' : '…'}`
     : isWaiting
       ? `Start this sample task and join the ${destination} orbit.`
       : 'Return this sample task to not started and coast into the outer waiting ring.';
 }
 $('enter-orbit').onclick = () => {
-  if (!selected || selected.userData.transfer) return;
+  if (!selected || selected.userData.transfer || selected.userData.forming) return;
   const data = selected.userData;
   const leaving = data.status === 'in-progress';
   const targetOrbit = leaving ? 9.5 : data.source === 'Redmine' ? 4.2 : 7.1;
@@ -220,6 +406,7 @@ $('fullscreen').onclick = async () => {
 };
 document.addEventListener('fullscreenchange', () => { $('fullscreen').textContent = document.fullscreenElement ? 'Exit fullscreen ↙' : 'Fullscreen ↗'; });
 function resize() {
+  for (const { tag } of arrivals.values()) fitArrivalTag(tag);
   camera.aspect = innerWidth/innerHeight;
   camera.zoom = Math.min(1, camera.aspect / 1.1);
   camera.updateProjectionMatrix();
@@ -263,7 +450,7 @@ function updateScene(delta) {
   if (selected) {
     selectionRing.position.copy(selected.position);
     selectionRing.quaternion.copy(camera.quaternion);
-    selectionRing.scale.setScalar(selected.userData.radius);
+    selectionRing.scale.setScalar(selected.userData.radius * selected.scale.x);
   }
 }
 let lastRender = performance.now();
@@ -277,7 +464,9 @@ function animate(now) {
   if (elapsed < interval-0.5) return;
   lastRender = now;
   updateScene(Math.min(elapsed/1000,0.1));
+  updateFormations(Math.min(elapsed/1000,0.1));
   controls.update();
+  updateArrivalTags();
   renderer.render(scene,camera);
   frames++;
   if (now-statsStart >= 1000) {

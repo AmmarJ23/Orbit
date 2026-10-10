@@ -7,10 +7,21 @@
 <section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1>Your active universe.</h1><p>Low-poly worlds. A quieter kind of motion.</p></section>
 <aside id="selection" hidden><span class="eyebrow">SELECTED WORLD</span><h2 id="planet-name"></h2><span id="planet-status" class="status" role="status"></span><p id="planet-description"></p><button id="enter-orbit" class="primary-action">Enter orbit ↗</button><p id="orbit-hint" class="orbit-hint"></p><button id="clear">Clear selection</button></aside>
 <footer><div class="legend"><span><i class="comet"></i>Redmine orbit</span><span><i class="blue"></i>ClickUp orbit</span><span><i class="grey"></i>Not started</span></div><p>Drag to rotate · Click a planet</p></footer>
-<details class="controls" open><summary>Motion & quality <span id="fps">— fps</span></summary><div class="control-body">
+<details class="controls" open><summary>Testing menu <span id="fps">— fps</span></summary><div class="control-body">
+<div class="testing-tabs" role="tablist" aria-label="Testing tools"><button id="planets-tab" type="button" role="tab" aria-selected="true" aria-controls="planets-panel">Planets</button><button id="motion-tab" type="button" role="tab" aria-selected="false" aria-controls="motion-panel" tabindex="-1">Motion & quality</button></div>
+<section id="planets-panel" role="tabpanel" aria-labelledby="planets-tab">
+<form id="planet-form">
+<p class="tool-heading">Add a planet</p>
+<label for="new-name">Planet name</label><input id="new-name" name="name" type="text" placeholder="e.g. Review dashboard" required maxlength="60" pattern=".*\S.*" title="Enter a name with at least one non-space character." autocomplete="off">
+<div class="pair"><label for="new-source">Source<select id="new-source" name="source"><option value="Redmine">Redmine</option><option value="ClickUp">ClickUp</option></select></label><label for="new-status">Starting state<select id="new-status" name="status"><option value="not-started">Not started</option><option value="in-progress">In progress</option></select></label></div>
+<p class="placement-hint" id="placement-hint" aria-live="polite">Starts on the outer waiting ring. Enter orbit whenever you’re ready.</p>
+<div class="form-actions"><button id="clear-planet-form" type="button">Clear</button><button class="create-planet" type="submit">Add planet ↗</button></div>
+<p id="planet-added" role="status"></p><p class="prototype-note">For testing only · resets on refresh</p>
+</form></section>
+<section id="motion-panel" role="tabpanel" aria-labelledby="motion-tab" hidden>
 <label for="speed">Orbit speed <output id="speed-value">1×</output></label><input id="speed" type="range" min="0" max="3" step="0.1" value="1">
 <div class="pair"><label>Frame limit<select id="frame-limit"><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">Uncapped</option></select></label><label>Resolution<select id="resolution"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select></label></div>
 <label class="check"><input id="stars" type="checkbox" checked> Star field</label><div class="actions"><button id="pause">Pause motion</button><button id="reset">Reset view</button></div><p id="stats"></p>
-</div></details>
+</section></div></details>
 <div id="error" hidden></div><script type="module" src="/main.js"></script>
 </body></html>

@@ -169,3 +169,7 @@ User approved a local desktop companion built with Tauri and Three.js. Target th
 - Leave platform-specific window, credential-storage and background behavior behind clear boundaries, and test the scene in the relevant webviews before claiming Windows support.
 
 Next proposed implementation step: a small Tauri + Three.js rendering/performance prototype. UI framework, local storage library, packaging/distribution details and exact synchronization intervals remain undecided.
+
+### Planet creation clarification — 10 October 2026
+
+The prototype supports creating sample planets with a name, Redmine/ClickUp source and Not started/In progress state. The user explicitly requested no persistence for prototype testing; the actual application must save planets and their states locally. This sample creation does not create external Redmine/ClickUp tasks.
