@@ -55,7 +55,7 @@ export function createRedmineClient({ baseUrl, apiKey, fetch: fetchImpl = global
     listProjects: () => getAll('/projects.json', 'projects'),
     // Defaults match the dashboard: open issues assigned to the key's owner.
     listIssues: (params = {}) => getAll('/issues.json', 'issues', { assigned_to_id: 'me', status_id: 'open', sort: 'updated_on:desc', ...params }),
-    getIssue: async (id, include = 'journals,allowed_statuses') => (await get(`/issues/${encodeURIComponent(id)}.json`, { include })).issue,
+    getIssue: async (id, include = '') => (await get(`/issues/${encodeURIComponent(id)}.json`, { include })).issue,
     listTimeEntries: (params = {}) => getAll('/time_entries.json', 'time_entries', params),
     async listMyTasks() {
       return (await this.listIssues()).map((issue) => toTask(issue, root));
@@ -63,19 +63,15 @@ export function createRedmineClient({ baseUrl, apiKey, fetch: fetchImpl = global
   };
 }
 
-// Maps a Redmine issue to Orbit's shared task fields (see DISCUSSION.md "Suggested first version").
+// Orbit only needs the ticket number, title, project and priority from Redmine.
+// Status is not read or tracked: it is edited in Redmine by the user, and Orbit keeps its own To do / Doing / Done state.
 export function toTask(issue, baseUrl) {
   return {
     source: 'redmine',
     externalId: String(issue.id),
     title: issue.subject,
     project: issue.project?.name ?? null,
-    status: issue.status?.name ?? null,
-    isClosed: issue.status?.is_closed ?? false,
     priority: issue.priority?.name ?? null,
-    dueDate: issue.due_date ?? null,
-    updatedAt: issue.updated_on ?? null,
-    parentId: issue.parent?.id != null ? String(issue.parent.id) : null,
     url: `${baseUrl.replace(/\/+$/, '')}/issues/${issue.id}`,
   };
 }

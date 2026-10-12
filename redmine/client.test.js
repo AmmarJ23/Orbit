@@ -30,7 +30,7 @@ test('errors are descriptive and never leak the key', async () => {
   await assert.rejects(c.getCurrentUser(), (e) => e instanceof RedmineError && e.status === 401 && !e.message.includes('SECRET'));
 });
 
-test('toTask maps shared fields', () => {
-  const t = toTask({ id: 7, subject: 'Fix', project: { name: 'P' }, status: { name: 'New', is_closed: false }, priority: { name: 'High' }, due_date: '2026-10-20', parent: { id: 3 } }, 'https://r.test/');
-  assert.deepEqual(t, { source: 'redmine', externalId: '7', title: 'Fix', project: 'P', status: 'New', isClosed: false, priority: 'High', dueDate: '2026-10-20', updatedAt: null, parentId: '3', url: 'https://r.test/issues/7' });
+test('toTask maps only number, title, project, priority (+ link)', () => {
+  const t = toTask({ id: 7, subject: 'Fix', project: { name: 'P' }, status: { name: 'New' }, priority: { name: 'High' }, due_date: '2026-10-20' }, 'https://r.test/');
+  assert.deepEqual(t, { source: 'redmine', externalId: '7', title: 'Fix', project: 'P', priority: 'High', url: 'https://r.test/issues/7' });
 });

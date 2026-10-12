@@ -13,7 +13,7 @@ try {
     const { id, login, firstname, lastname } = await client.getCurrentUser();
     console.log({ id, login, name: `${firstname} ${lastname}` });
   } else if (cmd === 'tasks') {
-    console.table(await client.listMyTasks(), ['externalId', 'title', 'project', 'status', 'priority', 'dueDate']);
+    console.table(await client.listMyTasks(), ['externalId', 'title', 'project', 'priority']);
   } else {
     console.error('Usage: node cli.js whoami|tasks');
     process.exitCode = 2;
