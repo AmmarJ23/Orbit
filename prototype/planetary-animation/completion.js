@@ -31,16 +31,38 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
   const clamp = THREE.MathUtils.clamp;
 
   const grainCount = 384;
-  const dustStart = 4.8;
-  const closeSpeed = 0.85;
-  const dustSpeed = 0.9; // Gentle motion continues through deformation and breakup.
+  // One constant angular acceleration from the moment the task is completed:
+  //   omega(t) = omega0 + alpha * t,   theta(t) = omega0 * t + alpha * t^2 / 2
+  const alpha = 0.12; // rad/s^2
+  const infallAccel = 1.2; // Radial acceleration (units/s^2) of grains falling along the ribbon, from rest.
   const flowStart = 7; // The existing ribbon has finished stretching and shedding its surface.
   const ribbonWrap = Math.PI * 1.65;
-  const flowSpeed = closeSpeed * 0.5; // Match the ribbon's angular speed at the handoff.
   const outwardDuration = 3.6;
-  function ribbonAdvance(time) {
-    const slow = clamp((time - 6) / 2, 0, 1);
-    return closeSpeed * (Math.min(time, 6) + 2 * (slow - slow ** 3 + 0.5 * slow ** 4));
+  // Time at which theta = PI (the half-turn), solving alpha/2 t^2 + omega0 t - PI = 0.
+  function halfTurnTime(omega0) {
+    return (Math.sqrt(omega0 ** 2 + 2 * alpha * Math.PI) - omega0) / alpha;
+  }
+  // Approach radius. The tangential speed v = r * omega only ever rises, as in a gravity well:
+  // its acceleration starts at alpha * r0 (spin-up at constant radius, so no radial kick) and
+  // fades out exponentially with time constant tau, which is solved so that the planet reaches
+  // closeRadius exactly when the half-turn ends. Then r(t) = v(t) / omega(t).
+  function approachSpeedGain(omega0, startRadius, closeRadius, duration) {
+    const target = (omega0 + alpha * duration) * closeRadius - omega0 * startRadius;
+    let low = 0.05, high = 60;
+    for (let i = 0; i < 50; i++) {
+      const mid = (low + high) / 2;
+      if (alpha * startRadius * mid * (1 - Math.exp(-duration / mid)) < target) low = mid; else high = mid;
+    }
+    return (low + high) / 2;
+  }
+  function approachRadius(j, t) {
+    const speed = j.omega0 * j.startOrbit
+      + alpha * j.startOrbit * j.tau * (1 - Math.exp(-Math.min(t, j.dustStart) / j.tau));
+    return speed / (j.omega0 + alpha * Math.min(t, j.dustStart));
+  }
+  // Angle swept by the body between two times under the constant acceleration.
+  function swept(omega0, from, to) {
+    return omega0 * (to - from) + 0.5 * alpha * (to ** 2 - from ** 2);
   }
   function dust(grainRadius) {
     const mesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(grainRadius, 0), new THREE.MeshStandardMaterial({ color: 0x79bfff, roughness: 1, flatShading: true, transparent: true, opacity: 0, depthWrite: false }), grainCount);
@@ -111,11 +133,15 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
           Math.sin(crossAngle) * crossRadius, Math.sin(baseAngle) * radial + Math.cos(baseAngle) * tangent),
           delay: random() * 0.22, offset: random() * Math.PI * 2, height: (random() - 0.5) * 0.2, size: 0.4 + random() };
       });
-      // Wait for the last grain to travel along the ribbon and cross inside the core.
-      const lastGrainTravel = 1 + 0.4 / (4 + 2 * data.radius);
-      const dustEnd = dustStart + flowStart
-        + (ribbonWrap * lastGrainTravel + ribbonAdvance(8) - ribbonAdvance(flowStart)) / flowSpeed;
-      const journey = { elapsed: 0, dustEnd, startOrbit: data.orbit, startPhase: Math.atan2(planet.position.z, planet.position.x), startSpeed: data.speed, targetOrbit, targetPhase, copy, incoming, outgoing, grains, fragments };
+      const omega0 = data.speed;
+      const dustStart = halfTurnTime(omega0);
+      const tau = approachSpeedGain(omega0, data.orbit, 1.45 + data.radius + 0.3, dustStart);
+      // Grains fall along the ribbon from rest: d = g t^2 / 2. The outermost one must drop
+      // from its start radius to inside the core.
+      const pathSlope = 4 + 2 * data.radius; // Radius gained per unit of ribbon coordinate.
+      const outerDrop = pathSlope + 0.4;
+      const dustEnd = dustStart + flowStart + Math.sqrt(2 * outerDrop / infallAccel);
+      const journey = { elapsed: 0, dustEnd, startOrbit: data.orbit, startPhase: Math.atan2(planet.position.z, planet.position.x), omega0, dustStart, tau, targetOrbit, targetPhase, copy, incoming, outgoing, grains, fragments };
       data.completion = journey;
       journeys.set(planet, journey);
       onChange(planet);
@@ -140,18 +166,13 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
       const formationEnd = outwardEnd + 3.5;
       const settledEnd = formationEnd + 1.5;
       // One shrinking orbit, not a radial approach followed by a separate close circle.
-      const orbitProgress = clamp(j.elapsed / dustStart, 0, 1);
-      const u = orbitProgress;
-      const halfTurn = Math.PI * (3 * u * u - 2 * u ** 3)
-        + dustStart * j.startSpeed * (u ** 3 - 2 * u * u + u)
-        + dustStart * closeSpeed * (u ** 3 - u * u);
+      const { dustStart } = j;
       const disruptionTime = Math.max(0, j.elapsed - dustStart);
       const breakup = clamp(disruptionTime / 12.5, 0, 1);
       const closeRadius = 1.45 + planet.userData.radius + 0.3;
-      // Ease the small speed change; avoid a velocity jump at the start of disruption.
-      const angle = j.startPhase + halfTurn + closeSpeed * disruptionTime
-        + (dustSpeed - closeSpeed) * (disruptionTime - 1 + Math.exp(-disruptionTime));
-      const radius = THREE.MathUtils.lerp(j.startOrbit, closeRadius, smooth(u, 0, 1));
+      // Constant angular acceleration from the start of the journey, through every stage.
+      const angle = j.startPhase + swept(j.omega0, 0, j.elapsed);
+      const radius = approachRadius(j, j.elapsed);
       planet.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
       if (j.elapsed < dustStart) planet.rotation.y += step * 0.7;
       planet.visible = j.elapsed < dustStart;
@@ -167,12 +188,14 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
         const baseAngle = j.startPhase + Math.PI;
         const stretch = smooth(disruptionTime, 0, 5);
         const wrap = ribbonWrap * smooth(disruptionTime, 1.5, 7);
-        const advance = ribbonAdvance(disruptionTime);
-        // As the curve stops rotating, material keeps advancing along it. The shift
-        // starts with zero velocity, preserving the existing deformation handoff;
-        // its angular travel exactly replaces the rotation being eased away.
-        const flow = disruptionTime <= flowStart ? 0
-          : (flowSpeed * (disruptionTime - flowStart) - (advance - ribbonAdvance(flowStart))) / ribbonWrap;
+        // The whole ribbon keeps rotating under the same constant acceleration until absorption ends.
+        const advance = swept(j.omega0 + alpha * dustStart, 0, disruptionTime);
+        // Past flowStart the curl stops growing and grains fall along the same spiral, starting
+        // from rest relative to the ribbon (no velocity jump) with constant acceleration.
+        const flowTime = Math.max(0, disruptionTime - flowStart);
+        const pathSlope = 4 + 2 * planet.userData.radius;
+        const fallen = 0.5 * infallAccel * flowTime ** 2;
+        const flow = fallen / pathSlope; // Distance fallen, as a ribbon coordinate.
         function streamPoint(local, out) {
           const radial = local.x * Math.cos(baseAngle) + local.z * Math.sin(baseAngle);
           const tangent = -local.x * Math.sin(baseAngle) + local.z * Math.cos(baseAngle);
@@ -181,8 +204,7 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
           const a = baseAngle + advance - wrap * (position - 0.5);
           // Shift the coordinate along ONE spiral, rather than collapsing each
           // grain's radius from its own angle. Every grain passes the same tip.
-          const r = Math.max(0, closeRadius + radial + stretch * (4 * side - 0.35)
-            - flow * (4 + 2 * planet.userData.radius));
+          const r = Math.max(0, closeRadius + radial + stretch * (4 * side - 0.35) - fallen);
           const width = (1 - stretch * 0.88) * smooth(r, 1, 1.4);
           out.set(Math.cos(a) * r - Math.sin(a) * tangent * width,
             local.y * width, Math.sin(a) * r + Math.cos(a) * tangent * width);
@@ -207,7 +229,7 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
           fragments.mesh.geometry.computeVertexNormals();
         }
       }
-      const stage = j.elapsed < 2 ? 'approaching' : j.elapsed < dustStart ? 'circling' : disruptionTime < 2.5 ? 'stretching' : disruptionTime < 8 ? 'breaking' : j.elapsed < dustEnd ? 'absorbing' : 'emerging';
+      const stage = j.elapsed < dustStart * 0.4 ? 'approaching' : j.elapsed < dustStart ? 'circling' : disruptionTime < 2.5 ? 'stretching' : disruptionTime < 8 ? 'breaking' : j.elapsed < dustEnd ? 'absorbing' : 'emerging';
       if (j.stage !== stage) { j.stage = stage; onChange(planet); }
       const growth = smooth(j.elapsed, outwardEnd, formationEnd);
       const targetAngle = j.targetPhase + Math.max(0, j.elapsed - outwardEnd) * 0.035;
