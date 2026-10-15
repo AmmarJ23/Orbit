@@ -366,7 +366,7 @@ let simulationTime = 0;
 let selected = null;
 let speed = 1;
 let frameLimit = 60;
-const completionSystem = createCompletionSystem({ scene, rock, random, onChange: planet => {
+const completionSystem = createCompletionSystem({ scene, rock, random, core: { glow: coreGlow, light: coreLight, disc: accretion }, onChange: planet => {
   if (planet === selected) refreshSelection();
 } });
 function findOpenPhase(orbit) {
@@ -417,8 +417,8 @@ function refreshSelection() {
   if (completion || status === 'completed') {
     $('planet-status').textContent = completion ? 'Completing' : 'Completed';
     $('planet-description').textContent = `${completion ? 'Travelling to' : 'Settled in'} the completed system`;
-    const stageLabel = { approaching: 'Approaching the centre', circling: 'Circling the centre', stretching: 'Stretching under gravity', breaking: 'Breaking into dust', absorbing: 'Debris falling into the centre', emerging: 'Reassembling in the completed system' };
-    $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Approaching the centre'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit.`;
+    const stageLabel = { approaching: 'Captured by the black hole', circling: 'Spiralling in', stretching: 'Stretched by tidal forces', breaking: 'Torn into debris', absorbing: 'Crossing the event horizon', emerging: 'Reassembling in the completed system' };
+    $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Captured by the black hole'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit.`;
     return;
   }
   $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
