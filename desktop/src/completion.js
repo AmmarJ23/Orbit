@@ -56,6 +56,7 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
     return (low + high) / 2;
   }
   function approachRadius(j, t) {
+    if (t === 0) return j.startOrbit;
     const speed = j.omega0 * j.startOrbit
       + alpha * j.startOrbit * j.tau * (1 - Math.exp(-Math.min(t, j.dustStart) / j.tau));
     return speed / (j.omega0 + alpha * Math.min(t, j.dustStart));
@@ -285,7 +286,7 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
       }
       if (j.elapsed >= settledEnd) {
         disposeDust(j.outgoing, world);
-        settled.push({ mesh: j.copy, orbit: j.targetOrbit, phase: targetAngle });
+        settled.push({ planet, mesh: j.copy, orbit: j.targetOrbit, phase: targetAngle });
         planet.userData.completion = null;
         planet.userData.status = 'completed';
         journeys.delete(planet);
@@ -321,5 +322,42 @@ export function createCompletionSystem({ scene, rock, random, onChange }) {
     }
     renderer.render(world, camera);
   }
-  return { complete, update, render };
+  function remove(planet) {
+    const journey = journeys.get(planet);
+    if (journey) {
+      for (const [mesh, owner] of [[journey.incoming, scene], [journey.outgoing, world], [journey.fragments?.mesh, scene]]) {
+        if (mesh) disposeDust(mesh, owner);
+      }
+      world.remove(journey.copy);
+      journey.copy.material.dispose(); // Geometry belongs to the original planet.
+      journeys.delete(planet);
+    }
+    for (let i = settled.length - 1; i >= 0; i--) {
+      if (settled[i].planet !== planet) continue;
+      world.remove(settled[i].mesh);
+      settled[i].mesh.material.dispose();
+      settled.splice(i, 1);
+    }
+    planet.userData.completion = null;
+    if (!journeys.size) { panel.hidden = true; closing = 0; }
+  }
+  function restore(planet) {
+    remove(planet);
+    const orbit = planet.userData.source === 'Redmine' ? 4.2 : 7.1;
+    const phase = (planet.userData.task?.seed ?? 19) % 6283 / 1000;
+    const copy = new THREE.Mesh(planet.geometry, planet.material.clone());
+    copy.rotation.copy(planet.rotation);
+    copy.position.set(Math.cos(phase) * orbit, 0, Math.sin(phase) * orbit);
+    world.add(copy);
+    settled.push({ planet, mesh: copy, orbit, phase });
+    planet.visible = false;
+    planet.userData.status = 'completed';
+  }
+  function settleAll() {
+    for (const planet of [...journeys.keys()]) restore(planet);
+    panel.hidden = true;
+    panel.style.opacity = '1';
+    closing = 0;
+  }
+  return { complete, update, render, restore, remove, settleAll };
 }

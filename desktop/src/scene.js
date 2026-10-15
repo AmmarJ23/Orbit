@@ -4,7 +4,16 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCompletionSystem } from './completion.js';
 import { createRenderLoop } from './render-loop.js';
 import { createFramePacer } from './frame-pacer.js';
-import { connectVisibility, isFullscreen, toggleFullscreen, reportRendering } from './platform.js';
+import { connectVisibility, isFullscreen, toggleFullscreen, reportRendering, desktop } from './platform.js';
+import { createAppController } from './app-controller.js';
+import { createAppUI, setupSettingsTabs } from './app-ui.js';
+
+const DEMO = import.meta.env.VITE_ORBIT_DEMO === 'true';
+document.body.dataset.mode = DEMO ? 'demo' : 'live';
+let controller;
+let ui;
+const taskPlanets = new Map();
+const busyTasks = new Set();
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('space');
@@ -50,12 +59,12 @@ scene.add(coreLight);
 // Seeded geometry keeps the scene identical between reloads and comparisons.
 let seed = 19;
 function random() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
-function rock(radius, color, detail = 1) {
+function rock(radius, color, detail = 1, rng = random) {
   const geometry = new THREE.IcosahedronGeometry(radius, detail);
   const position = geometry.attributes.position;
   const colors = [];
   for (let i = 0; i < position.count; i += 3) {
-    const shade = new THREE.Color(color).multiplyScalar(0.72 + random() * 0.4);
+    const shade = new THREE.Color(color).multiplyScalar(0.72 + rng() * 0.4);
     for (let j = 0; j < 3; j++) colors.push(shade.r, shade.g, shade.b);
   }
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -192,23 +201,14 @@ function updateArrivalTags() {
     arrival.tag.style.setProperty('--reveal', `${100 * (1 - THREE.MathUtils.smoothstep(reveal, 0.34, 0.56))}%`);
   }
 }
-const specs = [
-  ['Lyra', 4.2, 0.62, 0x79bfff, 2.3, 0.052, 'Redmine · inner orbit'],
-  ['Vega', 4.2, 0.43, 0x4898d9, 5.4, 0.045, 'Redmine · inner orbit'],
-  ['Elara', 4.2, 0.29, 0xb6e1ff, 0.3, 0.058, 'Redmine · inner orbit'],
-  ['Mira', 7.1, 0.76, 0x8ad8ed, 3.7, 0.029, 'ClickUp · outer orbit'],
-  ['Atlas', 7.1, 0.58, 0x559bcf, 0.6, 0.034, 'ClickUp · outer orbit'],
-  ['Nova', 7.1, 0.42, 0xa2d3ff, 5.2, 0.025, 'ClickUp · outer orbit'],
-  ['Cinder', 9.5, 0.65, 0x64789b, 2.4, 0, 'Not started · stationary'],
-  ['Echo', 9.5, 0.38, 0x465d7a, 0.1, 0, 'Not started · stationary'],
-  ['Solace', 9.5, 0.53, 0x8095ac, 4.8, 0, 'Not started · stationary'],
-];
 const labelLayer = document.createElement('div');
 labelLayer.className = 'planet-labels';
 labelLayer.setAttribute('aria-hidden', 'true');
 canvas.after(labelLayer); // Below panels and menus in paint order.
-function createPlanet({ name, orbit, radius, color, angle, speed, source, phase = angle }) {
-  const mesh = rock(radius, color);
+function createPlanet({ name, orbit, radius, color, angle, speed, source, phase = angle, visualSeed = 19 }) {
+  let localSeed = visualSeed;
+  const rng = () => { localSeed = (Math.imul(localSeed, 1664525) + 1013904223) >>> 0; return localSeed / 4294967296; };
+  const mesh = rock(radius, color, 1, rng);
   // Persistent label: name plus source/state line, positioned every frame.
   const label = document.createElement('div');
   label.className = 'planet-label';
@@ -221,15 +221,11 @@ function createPlanet({ name, orbit, radius, color, angle, speed, source, phase 
     spinAngle: angle, baseColor: new THREE.Color(color),
     status: speed ? 'in-progress' : 'not-started', transfer: null,
   };
-  mesh.rotation.set(random(), random(), random());
+  mesh.rotation.set(rng(), rng(), rng());
   mesh.position.set(Math.cos(phase) * orbit, Math.sin(phase * 2) * 0.08, Math.sin(phase) * orbit);
   planets.push(mesh);
   scene.add(mesh);
   return mesh;
-}
-for (const [name, orbit, radius, color, angle, speed] of specs) {
-  const source = orbit === 4.2 || name === 'Cinder' ? 'Redmine' : 'ClickUp';
-  createPlanet({ name, orbit, radius, color, angle, speed, source });
 }
 const dustGeometry = new THREE.IcosahedronGeometry(0.08, 0);
 const dustMesh = new THREE.InstancedMesh(dustGeometry, new THREE.MeshStandardMaterial({color: 0x354563, roughness: 1, flatShading: true}), 110);
@@ -272,39 +268,6 @@ let frameLimit = 60;
 const completionSystem = createCompletionSystem({ scene, rock, random, onChange: planet => {
   if (planet === selected) refreshSelection();
 } });
-function showTestingTab(name) {
-  for (const tabName of ['planets', 'motion']) {
-    const active = tabName === name;
-    $(`${tabName}-tab`).setAttribute('aria-selected', String(active));
-    $(`${tabName}-tab`).tabIndex = active ? 0 : -1;
-    $(`${tabName}-panel`).hidden = !active;
-  }
-}
-for (const name of ['planets', 'motion']) {
-  $(`${name}-tab`).onclick = () => showTestingTab(name);
-  $(`${name}-tab`).onkeydown = event => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    const next = event.key === 'Home' ? 'planets' : event.key === 'End' ? 'motion' : name === 'planets' ? 'motion' : 'planets';
-    showTestingTab(next);
-    $(`${next}-tab`).focus();
-  };
-}
-$('clear-planet-form').onclick = () => {
-  $('planet-form').reset();
-  $('planet-added').textContent = '';
-  updatePlacementHint();
-  $('new-name').focus();
-};
-function updatePlacementHint() {
-  const active = $('new-status').value === 'in-progress';
-  const source = $('new-source').value;
-  $('placement-hint').textContent = active
-    ? `Starts in the ${source === 'Redmine' ? 'inner Redmine' : 'outer ClickUp'} orbit.`
-    : 'Starts on the outer waiting ring. Enter orbit whenever you’re ready.';
-}
-$('new-source').onchange = updatePlacementHint;
-$('new-status').onchange = updatePlacementHint;
 function findOpenPhase(orbit) {
   const fullCircle = Math.PI * 2;
   const angles = planets
@@ -324,31 +287,11 @@ function findOpenPhase(orbit) {
   }
   return phase % fullCircle;
 }
-$('planet-form').onsubmit = event => {
-  event.preventDefault();
-  const name = $('new-name').value.trim();
-  if (!name) return;
-  const source = $('new-source').value;
-  const active = $('new-status').value === 'in-progress';
-  const orbit = active ? source === 'Redmine' ? 4.2 : 7.1 : 9.5;
-  const orbitalSpeed = active ? source === 'Redmine' ? 0.048 : 0.03 : 0;
-  const phase = findOpenPhase(orbit);
-  const planet = createPlanet({
-    name, source, orbit, phase,
-    radius: 0.38 + random() * 0.2,
-    color: active ? source === 'Redmine' ? 0x79bfff : 0xa2d3ff : 0x64789b,
-    angle: phase - simulationTime * orbitalSpeed,
-    speed: orbitalSpeed,
-  });
-  $('planet-added').textContent = `Added ${name} · ${source} · ${active ? 'In progress' : 'Not started'}`;
-  $('new-name').value = '';
-  beginFormation(planet);
-  select(planet);
-};
 function select(planet) {
   selected = planet;
   $('selection').hidden = !planet;
   selectionRing.visible = !!planet;
+  ui?.selected();
   if (planet) {
     refreshSelection();
     if (matchMedia('(max-width: 700px)').matches) document.querySelector('.controls').open = false;
@@ -361,7 +304,12 @@ function refreshSelection() {
   const isLeaving = transfer?.kind === 'out';
   const destination = source === 'Redmine' ? 'inner' : 'outer';
   $('planet-name').textContent = name;
-  $('complete-planet').disabled = !!forming || !!transfer || !!completion || status === 'completed';
+  const saving = busyTasks.has(selected.userData.task?.id);
+  $('ticket-details').textContent = DEMO ? '' : '#' + selected.userData.task.externalId
+    + (selected.userData.task.project ? '\n' + selected.userData.task.project : '')
+    + (selected.userData.task.priority ? ' · ' + selected.userData.task.priority : '');
+  $('open-source').hidden = DEMO;
+  $('complete-planet').disabled = saving || !!forming || !!transfer || !!completion || status === 'completed';
   $('complete-planet').textContent = completion ? 'Completing…' : status === 'completed' ? 'Completed ✓' : 'Complete task ↗';
   $('enter-orbit').hidden = !!completion || status === 'completed';
   if (completion || status === 'completed') {
@@ -374,23 +322,23 @@ function refreshSelection() {
   $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
   $('planet-status').classList.toggle('active', !isWaiting);
   $('planet-description').textContent = `${source} · ${isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`}`;
-  $('enter-orbit').disabled = !!transfer || !!forming;
+  $('enter-orbit').disabled = saving || !!transfer || !!forming;
   $('enter-orbit').textContent = forming ? 'Forming planet…' : transfer ? isLeaving ? 'De-orbiting…' : 'Entering orbit…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
   $('orbit-hint').textContent = forming
     ? `Dust is gathering into a new world${paused ? ' · motion paused' : '…'}`
     : transfer
     ? `${isLeaving ? 'Slowing into the outer waiting ring' : `Moving into the ${source} orbit`}${paused ? ' · motion paused' : '…'}`
     : isWaiting
-      ? `Start this sample task and join the ${destination} orbit.`
-      : 'Return this sample task to not started and coast into the outer waiting ring.';
+      ? `Start this task and join the ${destination} orbit.`
+      : 'Return this task to not started and coast into the outer waiting ring.';
 }
-$('enter-orbit').onclick = () => {
+function transferPlanet(selected, targetStatus) {
   if (!selected || selected.userData.transfer || selected.userData.forming || selected.userData.completion || selected.userData.status === 'completed') return;
   const data = selected.userData;
-  const leaving = data.status === 'in-progress';
+  const leaving = targetStatus === 'not-started';
   const targetOrbit = leaving ? 9.5 : data.source === 'Redmine' ? 4.2 : 7.1;
   const orbitalSpeed = leaving ? 0 : data.source === 'Redmine' ? 0.048 : 0.03;
-  const targetColor = new THREE.Color(leaving ? 0x64789b : data.source === 'Redmine' ? 0x79bfff : 0xa2d3ff);
+  const targetColor = new THREE.Color(leaving ? 0x64789b : data.activeColor);
   const fromPhase = data.angle + simulationTime * data.speed;
   const fromSpeed = data.speed;
   data.speed = orbitalSpeed;
@@ -407,23 +355,13 @@ $('enter-orbit').onclick = () => {
     ),
   };
   refreshSelection();
+}
+$('enter-orbit').onclick = () => {
+  if (!selected || busyTasks.has(selected.userData.task.id)) return;
+  controller.setState(selected.userData.task.id, selected.userData.task.state === 'in-progress' ? 'not-started' : 'in-progress');
 };
-$('complete-planet').onclick = () => {
-  if (!selected) return;
-  // A lingering arrival tag must not follow a planet into its completion journey.
-  const arrival = arrivals.get(selected);
-  if (selected.userData.forming) return;
-  if (arrival) { arrival.tag.remove(); arrivals.delete(selected); }
-  completionSystem.complete([selected]);
-};
-$('complete-active').onclick = () => {
-  const active = planets.filter(planet => planet.userData.status === 'in-progress' && !planet.userData.forming && !planet.userData.transfer);
-  for (const planet of active) {
-    const arrival = arrivals.get(planet);
-    if (arrival) { arrival.tag.remove(); arrivals.delete(planet); }
-  }
-  completionSystem.complete(active);
-};
+$('complete-planet').onclick = () => { if (selected) controller.setState(selected.userData.task.id, 'completed'); };
+$('open-source').onclick = () => { if (selected) controller.openSource(selected.userData.task.id); };
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let down = null;
@@ -453,7 +391,7 @@ const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h
 let panelRects = [];
 let panelRectsAt = -Infinity;
 function readPanelRects() {
-  panelRects = [...document.querySelectorAll('header .brand, .header-actions, .intro, footer, #selection:not([hidden]), .controls, #completed-preview:not([hidden])')]
+  panelRects = [...document.querySelectorAll('header .brand, .header-actions, .intro, footer, #selection:not([hidden]), .controls, .task-panel, #completed-preview:not([hidden])')]
     .map(el => { const r = el.getBoundingClientRect(); return { x: r.left - 8, y: r.top - 8, w: r.width + 16, h: r.height + 16 }; });
   panelRectsAt = performance.now();
 }
@@ -491,13 +429,14 @@ function updateLabels() {
     data.label.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
   }
 }
-$('labels-toggle').onclick = () => { showLabels = !showLabels; $('labels-toggle').setAttribute('aria-pressed', String(showLabels)); updateLabels(); };
-$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume motion' : 'Pause motion'; refreshSelection(); };
+$('labels-toggle').onclick = () => controller.savePreferences({ labels: !showLabels });
+$('pause').onclick = () => controller.savePreferences({ paused: !paused });
 $('reset').onclick = () => { controls.reset(); select(null); };
-$('speed').oninput = e => { speed = Number(e.target.value); $('speed-value').textContent = `${speed.toFixed(1)}×`; };
-$('frame-limit').onchange = e => { frameLimit = Number(e.target.value); };
-$('resolution').onchange = e => { renderer.setPixelRatio(Number(e.target.value)); resize(); };
-$('stars').onchange = e => { stars.visible = e.target.checked; };
+$('speed').oninput = e => { speed = Number(e.target.value); $('speed-value').textContent = speed.toFixed(1) + '×'; };
+$('speed').onchange = e => controller.savePreferences({ speed: Number(e.target.value) });
+$('frame-limit').onchange = e => controller.savePreferences({ frameLimit: Number(e.target.value) });
+$('resolution').onchange = e => controller.savePreferences({ resolution: Number(e.target.value) });
+$('stars').onchange = e => controller.savePreferences({ stars: e.target.checked });
 $('fullscreen').onclick = async () => {
   try {
     await toggleFullscreen();
@@ -600,18 +539,151 @@ function reportSample() {
   reportRendering({ frames: totalFrames, seconds: performance.now() / 1000,
     documentVisible: !document.hidden, frameLimit, resolution: renderer.getPixelRatio() });
 }
-renderLoop.setVisible('native', false);
-renderLoop.setVisible('document', !document.hidden);
-document.addEventListener('visibilitychange', () => {
-  renderLoop.setVisible('document', !document.hidden);
-  reportSample();
-});
-connectVisibility(visible => {
-  renderLoop.setVisible('native', visible);
-  reportSample();
-}).catch(error => {
-  $('error').hidden = false;
-  $('error').textContent = `Could not start Orbit’s window connection. Relaunch Orbit. ${error.message ?? error}`;
-  console.error(error);
-});
+
+function clearArrival(planet) {
+  const arrival = arrivals.get(planet);
+  if (arrival) {
+    arrival.tag.remove();
+    if (arrival.particles) {
+      scene.remove(arrival.particles);
+      arrival.particles.geometry.dispose();
+      arrival.particles.material.dispose();
+    }
+    arrivals.delete(planet);
+  }
+  planet.scale.setScalar(1);
+  planet.userData.forming = false;
+}
+function posePlanet(planet, state) {
+  const data = planet.userData;
+  const active = state === 'in-progress';
+  const phase = Math.atan2(planet.position.z, planet.position.x);
+  data.orbit = active ? data.source === 'Redmine' ? 4.2 : 7.1 : 9.5;
+  data.speed = active ? data.source === 'Redmine' ? 0.048 : 0.03 : 0;
+  data.angle = phase - simulationTime * data.speed;
+  data.status = state;
+  const color = new THREE.Color(active ? data.activeColor : 0x64789b);
+  planet.material.color.setRGB(color.r / data.baseColor.r, color.g / data.baseColor.g, color.b / data.baseColor.b);
+  planet.position.set(Math.cos(phase) * data.orbit, Math.sin(phase * 2) * 0.08, Math.sin(phase) * data.orbit);
+}
+function settlePlanet(planet) {
+  clearArrival(planet);
+  planet.userData.transfer = null;
+  const task = planet.userData.task;
+  if (task.state === 'completed') {
+    if (planet.userData.status !== 'completed' || planet.userData.completion) {
+      posePlanet(planet, task.completedFrom ?? 'in-progress');
+      completionSystem.restore(planet);
+    }
+  } else {
+    completionSystem.remove(planet);
+    planet.visible = true;
+    posePlanet(planet, task.state);
+  }
+}
+function settleAll() {
+  for (const planet of taskPlanets.values()) settlePlanet(planet);
+  completionSystem.settleAll();
+  selectionRing.visible = false;
+  refreshSelection();
+}
+function spawnTask(task, animate) {
+  const source = task.source ?? 'Redmine';
+  const initialState = task.state === 'completed' ? task.completedFrom ?? 'in-progress' : task.state;
+  const active = initialState === 'in-progress';
+  const orbit = active ? source === 'Redmine' ? 4.2 : 7.1 : 9.5;
+  const phase = task.appearance?.angle ?? findOpenPhase(orbit);
+  const activeColor = task.appearance?.speed ? task.appearance.color : source === 'Redmine' ? 0x79bfff : 0xa2d3ff;
+  const planet = createPlanet({
+    name: task.title, source, orbit, phase, visualSeed: task.seed,
+    radius: task.appearance?.radius ?? 0.38 + (task.seed % 1000) / 1000 * 0.2,
+    color: task.appearance?.color ?? (active ? activeColor : 0x64789b),
+    angle: phase - simulationTime * (active ? source === 'Redmine' ? 0.048 : 0.03 : 0),
+    speed: active ? task.appearance?.speed || (source === 'Redmine' ? 0.048 : 0.03) : 0,
+  });
+  planet.userData.task = task;
+  planet.userData.targetState = task.state;
+  planet.userData.activeColor = activeColor;
+  taskPlanets.set(task.id, planet);
+  if (task.state === 'completed') completionSystem.restore(planet);
+  else if (animate) beginFormation(planet);
+  return planet;
+}
+function applySnapshot(snapshot, { settle, animate }) {
+  const ids = new Set(snapshot.tasks.map(task => task.id));
+  for (const [id, planet] of taskPlanets) {
+    if (ids.has(id)) continue;
+    if (selected === planet) select(null);
+    if (hovered === planet) hovered = null;
+    clearArrival(planet); completionSystem.remove(planet); scene.remove(planet);
+    planet.userData.label.remove(); planet.geometry.dispose(); planet.material.dispose();
+    planets.splice(planets.indexOf(planet), 1); taskPlanets.delete(id);
+  }
+  for (const task of snapshot.tasks) {
+    let planet = taskPlanets.get(task.id);
+    if (!planet) { spawnTask(task, animate && !settle); continue; }
+    const data = planet.userData;
+    const previousTarget = data.targetState;
+    data.task = task; data.name = task.title;
+    data.label.firstChild.textContent = task.title;
+    data.targetState = task.state;
+    const tag = arrivals.get(planet)?.tag;
+    if (tag) { tag.querySelector('.tag-name').textContent = task.title; fitArrivalTag(tag); }
+    if (settle) { settlePlanet(planet); continue; }
+    if (previousTarget === task.state) continue;
+    if (!animate) { settlePlanet(planet); continue; }
+    clearArrival(planet);
+    if (data.transfer) { data.transfer = null; posePlanet(planet, previousTarget); }
+    if (task.state === 'completed') {
+      completionSystem.complete([planet]);
+    } else if (previousTarget === 'completed') {
+      completionSystem.remove(planet); planet.visible = true; posePlanet(planet, task.state); beginFormation(planet);
+    } else {
+      transferPlanet(planet, task.state);
+    }
+  }
+  const preferences = snapshot.preferences;
+  paused = preferences.paused; speed = preferences.speed; frameLimit = preferences.frameLimit; showLabels = preferences.labels;
+  stars.visible = preferences.stars;
+  if (renderer.getPixelRatio() !== preferences.resolution) { renderer.setPixelRatio(preferences.resolution); resize(); }
+  $('labels-toggle').setAttribute('aria-pressed', String(showLabels));
+  $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
+  $('speed').value = speed; $('speed-value').textContent = speed.toFixed(1) + '×';
+  $('frame-limit').value = frameLimit; $('resolution').value = preferences.resolution; $('stars').checked = preferences.stars;
+  ui.render(snapshot); refreshSelection(); updateLabels();
+}
+setupSettingsTabs();
+if (DEMO) document.querySelector('.menu-title').textContent = 'Testing menu';
+ui = createAppUI({ controller: () => controller, selectTask: id => select(taskPlanets.get(id)), selectedId: () => selected?.userData.task.id });
+for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
+async function boot() {
+  let repository;
+  if (DEMO) {
+    if (desktop) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      if (await invoke('get_app_mode') !== 'demo') throw new Error('Frontend and native build modes do not match. Rebuild Orbit.');
+    }
+    const demo = await import('./demo.js');
+    repository = demo.createDemoRepository();
+    controller = createAppController({ repository, view: {
+      applySnapshot, settle: settleAll, setVisible: visible => renderLoop.setVisible('application', visible),
+      error: message => ui.error(message), busy: (id, value) => { ui.busy(id, value); value ? busyTasks.add(id) : busyTasks.delete(id); refreshSelection(); },
+    } });
+    demo.setupDemoTools({ repository, controller, selectTask: id => select(taskPlanets.get(id)) });
+  } else {
+    const { createNativeRepository } = await import('./native-repository.js');
+    repository = await createNativeRepository();
+    controller = createAppController({ repository, view: {
+      applySnapshot, settle: settleAll, setVisible: visible => renderLoop.setVisible('application', visible),
+      error: message => ui.error(message), busy: (id, value) => { ui.busy(id, value); value ? busyTasks.add(id) : busyTasks.delete(id); refreshSelection(); },
+    } });
+  }
+  await controller.start();
+  await controller.setVisibility('document', !document.hidden);
+  document.addEventListener('visibilitychange', () => { controller.setVisibility('document', !document.hidden); reportSample(); });
+  await connectVisibility(visible => { controller.setVisibility('native', visible); reportSample(); });
+  ui.busy('preferences', false);
+}
+renderLoop.setVisible('application', false);
+boot().catch(error => ui.error(String(error.message ?? error)));
 setInterval(reportSample, 5000);

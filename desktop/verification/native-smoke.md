@@ -13,7 +13,7 @@ Environment: Apple M1, MacBookPro17,1, 16 GiB RAM, macOS 27.0 (26A428), arm64. R
 - Command-H independently suspended rendering; Show Orbit / Command-1 resumed it. The counter remained at 3,935 throughout the hidden interval.
 - Minimization emitted the native suspension signal. The window was restored during the attempted 30-second minimized sample, so that sample is excluded from idle results.
 - Command-Q terminated the process. A fullscreen quit saved `fullscreen=true` and placement `x=-2270, y=0`. Manual relaunch restored native fullscreen, confirmed by the initial **Exit fullscreen** control without another fullscreen action.
-- Four automated tests pass: independent visibility gates; cancellation and clock reset across long hides; no duplicate render loops; frame limits across 60/75/90/120/144 Hz, uncapped callbacks and clock resets.
+- Automated lifecycle/frame-pacing checks were used during foundation development. Their test files were removed on 15 October 2026 at the user's request.
 
 ## Resource baseline
 
@@ -27,7 +27,7 @@ Samples sum the app plus its newly launched WebKit WebContent, GPU and Networkin
 
 The mixed fullscreen result includes a long non-rendering interval and must not be interpreted as continuous fullscreen cost. Its first uninterrupted 40 seconds averaged 25.88% combined CPU. During a steady 30-second visible window interval, the frame counter advanced from 6,267 to 8,059: 59.73 fps. Some startup/transition intervals were slower. No quality settings were silently reduced.
 
-The inherited frame limiter discarded fractional callback timing, which under-delivered on refresh rates that did not divide the selected cap (75 Hz / 30 fps produced 25 fps). The corrected application carries the remainder forward. The regression test failed before the fix and passes afterward. The independent browser prototype was left untouched.
+The inherited frame limiter discarded fractional callback timing, which under-delivered on refresh rates that did not divide the selected cap (75 Hz / 30 fps produced 25 fps). The corrected application carries the remainder forward. The independent browser prototype was left untouched.
 
 ## Remaining practical validation
 

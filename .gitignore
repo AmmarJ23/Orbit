@@ -17,3 +17,6 @@
 /desktop/src-tauri/target/
 /desktop/src-tauri/gen/
 /desktop/verification/*.log
+/desktop/.env
+/desktop/.env.local
+/desktop/.env.*.local
