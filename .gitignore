@@ -9,3 +9,11 @@
 # Planetary animation prototype dependencies and build
 /prototype/planetary-animation/node_modules/
 /prototype/planetary-animation/dist/
+
+# Desktop dependencies, native builds, and project-local Rust toolchain
+/.tools/
+/desktop/node_modules/
+/desktop/dist/
+/desktop/src-tauri/target/
+/desktop/src-tauri/gen/
+/desktop/verification/*.log

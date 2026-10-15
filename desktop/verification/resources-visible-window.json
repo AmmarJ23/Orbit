@@ -1,0 +1,215 @@
+{
+  "label": "visible-window-60fps-1.5x",
+  "durationSeconds": 60.1,
+  "processes": {
+    "6708": {
+      "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop",
+      "averageCpuPercent": 5.79,
+      "rssMiBRange": [
+        32.6,
+        40.7
+      ]
+    },
+    "6740": {
+      "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+      "averageCpuPercent": 8.51,
+      "rssMiBRange": [
+        11.3,
+        12.2
+      ]
+    },
+    "6741": {
+      "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+      "averageCpuPercent": 16.19,
+      "rssMiBRange": [
+        28.5,
+        37.8
+      ]
+    },
+    "6742": {
+      "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+      "averageCpuPercent": 0.02,
+      "rssMiBRange": [
+        1.4,
+        2.7
+      ]
+    }
+  },
+  "samples": [
+    {
+      "seconds": 1368551.670947583,
+      "processes": {
+        "6708": {
+          "cpuSeconds": 8.94,
+          "rssMiB": 40.65625,
+          "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop"
+        },
+        "6740": {
+          "cpuSeconds": 7.52,
+          "rssMiB": 12.125,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
+        },
+        "6741": {
+          "cpuSeconds": 15.78,
+          "rssMiB": 28.515625,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        },
+        "6742": {
+          "cpuSeconds": 0.08,
+          "rssMiB": 2.375,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+        }
+      }
+    },
+    {
+      "seconds": 1368561.691882458,
+      "processes": {
+        "6708": {
+          "cpuSeconds": 9.48,
+          "rssMiB": 34.265625,
+          "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop"
+        },
+        "6740": {
+          "cpuSeconds": 8.3,
+          "rssMiB": 12.234375,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
+        },
+        "6741": {
+          "cpuSeconds": 17.39,
+          "rssMiB": 33.75,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        },
+        "6742": {
+          "cpuSeconds": 0.08,
+          "rssMiB": 1.453125,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+        }
+      }
+    },
+    {
+      "seconds": 1368571.712932541,
+      "processes": {
+        "6708": {
+          "cpuSeconds": 10.07,
+          "rssMiB": 34.21875,
+          "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop"
+        },
+        "6740": {
+          "cpuSeconds": 9.33,
+          "rssMiB": 12.078125,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
+        },
+        "6741": {
+          "cpuSeconds": 19.2,
+          "rssMiB": 37.78125,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        },
+        "6742": {
+          "cpuSeconds": 0.09,
+          "rssMiB": 2.703125,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+        }
+      }
+    },
+    {
+      "seconds": 1368581.733979166,
+      "processes": {
+        "6708": {
+          "cpuSeconds": 10.66,
+          "rssMiB": 33.109375,
+          "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop"
+        },
+        "6740": {
+          "cpuSeconds": 10.17,
+          "rssMiB": 11.328125,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
+        },
+        "6741": {
+          "cpuSeconds": 20.87,
+          "rssMiB": 30.4375,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        },
+        "6742": {
+          "cpuSeconds": 0.09,
+          "rssMiB": 1.40625,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+        }
+      }
+    },
+    {
+      "seconds": 1368591.757906958,
+      "processes": {
+        "6708": {
+          "cpuSeconds": 11.27,
+          "rssMiB": 33.046875,
+          "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop"
+        },
+        "6740": {
+          "cpuSeconds": 11.11,
+          "rssMiB": 11.921875,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
+        },
+        "6741": {
+          "cpuSeconds": 22.46,
+          "rssMiB": 32.609375,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        },
+        "6742": {
+          "cpuSeconds": 0.09,
+          "rssMiB": 1.421875,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+        }
+      }
+    },
+    {
+      "seconds": 1368601.779476458,
+      "processes": {
+        "6708": {
+          "cpuSeconds": 11.89,
+          "rssMiB": 33.046875,
+          "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop"
+        },
+        "6740": {
+          "cpuSeconds": 11.93,
+          "rssMiB": 11.828125,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
+        },
+        "6741": {
+          "cpuSeconds": 23.91,
+          "rssMiB": 29.65625,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        },
+        "6742": {
+          "cpuSeconds": 0.09,
+          "rssMiB": 1.40625,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+        }
+      }
+    },
+    {
+      "seconds": 1368611.725382541,
+      "processes": {
+        "6708": {
+          "cpuSeconds": 12.42,
+          "rssMiB": 32.578125,
+          "command": "src-tauri/target/release/bundle/macos/Orbit.app/Contents/MacOS/orbit-desktop"
+        },
+        "6740": {
+          "cpuSeconds": 12.63,
+          "rssMiB": 11.890625,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU"
+        },
+        "6741": {
+          "cpuSeconds": 25.5,
+          "rssMiB": 30.921875,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        },
+        "6742": {
+          "cpuSeconds": 0.09,
+          "rssMiB": 1.40625,
+          "command": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking"
+        }
+      }
+    }
+  ]
+}
