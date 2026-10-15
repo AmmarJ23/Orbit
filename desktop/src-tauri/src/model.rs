@@ -34,6 +34,12 @@ pub struct Preferences {
     pub paused: bool,
     pub frame_limit: u32,
     pub resolution: f64,
+    // Added after the first stored documents; older rows default to on.
+    #[serde(default = "enabled")]
+    pub depth: bool,
+}
+fn enabled() -> bool {
+    true
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -44,6 +50,7 @@ impl Default for Preferences {
             paused: false,
             frame_limit: 60,
             resolution: 1.5,
+            depth: true,
         }
     }
 }

@@ -2,47 +2,134 @@
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Orbit</title><link rel="stylesheet" href="/src/style.css"></head>
 <body>
-<canvas id="space" aria-label="Interactive low-poly planetary system. Drag to rotate the view."></canvas>
-<header><div class="brand"><span class="mark">◌</span> Orbit <span class="tag">__ORBIT_MODE__</span></div><div class="header-actions"><button type="button" id="labels-toggle" aria-pressed="true" title="Show task labels on active planets">Labels</button><button id="fullscreen">Fullscreen ↗</button></div></header>
-<section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1>Your active universe.</h1><p>Low-poly worlds. A quieter kind of motion.</p></section>
+<canvas id="space" aria-label="Interactive low-poly planetary system. Drag to rotate, scroll to zoom, click a planet or the station."></canvas>
+<header>
+  <div class="brand"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="7"/><ellipse cx="16" cy="16" rx="14" ry="5.5" transform="rotate(-24 16 16)"/></svg>Orbit</div>
+  <nav class="nav-tabs" aria-label="Views"><button type="button" aria-current="page">Overview</button><button type="button" disabled title="Coming soon">Tasks</button><button type="button" disabled title="Coming soon">Notes</button></nav>
+  <!-- demo:start -->
+  <button type="button" id="new-task" class="primary">+ New task</button>
+  <!-- demo:end -->
+  <!-- live:start -->
+  <button type="button" id="new-task" class="primary" disabled title="Tasks come from Redmine for now">+ New task</button>
+  <!-- live:end -->
+</header>
+<section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1>Your active system</h1><p id="system-counts" role="status">—</p></section>
+<p class="scene-hint">Drag to rotate · Scroll to zoom · Click a planet</p>
+
+<div class="sources" aria-label="Task sources">
+  <section class="source-card glass" data-source="redmine">
+    <button type="button" class="card-head" aria-expanded="false" aria-controls="redmine-body"><span class="source-icon redmine" aria-hidden="true">R</span><span class="card-title">Redmine</span><span class="card-count" id="redmine-count"></span></button>
+    <div class="card-body" id="redmine-body">
+      <!-- live:start -->
+      <div class="card-status"><p id="connection-status" role="status">Loading saved tasks…</p><button type="button" id="refresh-tasks" class="quiet" hidden>Refresh</button></div>
+      <p id="sync-status" role="status"></p>
+      <!-- live:end -->
+      <p class="task-empty" id="task-empty">Loading…</p>
+      <!-- live:start -->
+      <button type="button" id="open-connect" class="primary" hidden>Connect Redmine</button>
+      <!-- live:end -->
+      <ul class="task-list" id="task-list" aria-label="Redmine tasks"></ul>
+    </div>
+  </section>
+  <section class="source-card glass" data-source="clickup">
+    <button type="button" class="card-head" aria-expanded="false" aria-controls="clickup-body"><span class="source-icon clickup" aria-hidden="true">C</span><span class="card-title">ClickUp</span><span class="card-count" id="clickup-count"></span></button>
+    <div class="card-body" id="clickup-body"><p class="task-empty" id="clickup-empty">ClickUp sync is coming soon.</p><ul class="task-list" id="clickup-list" aria-label="ClickUp tasks"></ul></div>
+  </section>
+  <section class="source-card glass" data-source="notes">
+    <button type="button" class="card-head" aria-expanded="false" aria-controls="notes-body"><span class="source-icon notes" aria-hidden="true">N</span><span class="card-title">Personal notes</span><span class="card-count">0</span></button>
+    <div class="card-body" id="notes-body"><p class="task-empty">Notes are coming soon.</p></div>
+  </section>
+</div>
+
+<div class="system-switch" role="group" aria-label="Systems">
+  <button type="button" aria-pressed="true"><span class="switch-art active-art" aria-hidden="true"></span><span><strong>Active system</strong><small>Redmine + ClickUp</small></span></button>
+  <button type="button" aria-pressed="false" disabled title="Coming soon"><span class="switch-art done-art" aria-hidden="true"></span><span><strong>Completed</strong><small id="completed-count">0 tasks</small></span></button>
+</div>
+
+<div class="scene-controls">
+  <div class="legend glass"><span><i class="comet"></i>Orbiting · In progress</span><span><i class="grey"></i>Exoplanets · Not started</span></div>
+  <div class="control-cluster">
+    <button type="button" id="zoom-out" class="icon" aria-label="Zoom out" title="Zoom out">−</button>
+    <button type="button" id="zoom-in" class="icon" aria-label="Zoom in" title="Zoom in">+</button>
+    <button type="button" id="reset" class="icon" aria-label="Reset view" title="Reset view">⟲</button>
+    <button type="button" id="labels-toggle" aria-pressed="true" title="Show task labels on active planets">Labels</button>
+    <button type="button" id="fullscreen">Fullscreen ↗</button>
+  </div>
+</div>
+
+<aside id="selection" class="glass callout" hidden aria-label="Selected task">
+  <h2 id="planet-name"></h2>
+  <p class="callout-meta"><span id="planet-source"></span> · <span id="planet-status" class="status" role="status"></span></p>
+  <p id="planet-description"></p><p id="ticket-details"></p>
+  <button id="open-source" type="button" class="link" hidden>Open task →</button>
+  <div class="callout-actions"><button id="enter-orbit" class="primary">Enter orbit ↗</button><button id="complete-planet">Complete ✓</button></div>
+  <p id="orbit-hint" class="orbit-hint"></p>
+  <button id="clear" class="close" aria-label="Close">×</button>
+</aside>
+
+<p id="station-label" class="station-label" aria-hidden="true">Settings</p>
+<p id="empty-scene" class="empty-scene" hidden>No tasks in orbit yet</p>
+
+<section id="settings" class="glass settings-card" role="dialog" aria-modal="false" aria-labelledby="settings-title" hidden>
+  <div class="settings-head"><h2 id="settings-title">Station settings</h2><span id="fps" hidden>— fps</span><button type="button" id="close-settings" class="close" aria-label="Close settings">×</button></div>
+  <div class="testing-tabs" role="tablist" aria-label="Orbit settings">
+  <!-- demo:start -->
+  <button id="planets-tab" type="button" role="tab" aria-selected="true" aria-controls="planets-panel">Testing</button>
+  <!-- demo:end -->
+  <!-- live:start -->
+  <button id="connection-tab" type="button" role="tab" aria-selected="true" aria-controls="connection-panel">Redmine</button>
+  <!-- live:end -->
+  <button id="motion-tab" type="button" role="tab" aria-selected="false" aria-controls="motion-panel" tabindex="-1">Motion & quality</button></div>
+  <!-- demo:start -->
+  <section id="planets-panel" role="tabpanel" aria-labelledby="planets-tab">
+    <p class="note">Demo data resets when Orbit restarts. Use New task to add planets.</p>
+    <button id="complete-active" type="button" class="wide">Complete active planets ↗</button>
+  </section>
+  <!-- demo:end -->
+  <!-- live:start -->
+  <section id="connection-panel" role="tabpanel" aria-labelledby="connection-tab">
+    <p id="connection-summary" class="note"></p>
+    <div class="form-actions"><button type="button" id="edit-connection" class="primary">Connect Redmine</button><button type="button" id="disconnect-redmine" hidden>Disconnect</button></div>
+    <p id="connection-feedback" role="status"></p>
+  </section>
+  <!-- live:end -->
+  <section id="motion-panel" role="tabpanel" aria-labelledby="motion-tab" hidden>
+    <label for="speed">Orbit speed <output id="speed-value">1×</output></label><input id="speed" type="range" min="0" max="3" step="0.1" value="1">
+    <div class="pair"><label>Frame limit<select id="frame-limit"><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">Uncapped</option></select></label><label>Resolution<select id="resolution"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select></label></div>
+    <label class="check"><input id="stars" type="checkbox" checked> Star field</label>
+    <label class="check"><input id="depth" type="checkbox" checked> Nebula and foreground rocks</label>
+    <label class="check"><input id="debug" type="checkbox"> Show frame rate</label>
+    <div class="actions"><button id="pause" type="button">Pause motion</button></div><p id="stats" hidden></p>
+  </section>
+</section>
+
 <!-- live:start -->
-<aside class="task-panel" aria-label="Redmine tasks"><div class="task-panel-heading"><span class="eyebrow">REDMINE</span><button type="button" id="refresh-tasks" disabled>Refresh</button></div><p id="connection-status" role="status">Loading saved tasks…</p><p id="sync-status" role="status"></p><p id="task-empty">Loading…</p><div id="task-list" aria-label="Your tasks"></div></aside>
+<dialog id="connect-dialog" class="glass modal" aria-labelledby="connect-title">
+  <form id="connection-form">
+    <h2 id="connect-title">Connect Redmine</h2>
+    <label for="redmine-url">Redmine server</label><input id="redmine-url" type="url" value="https://red.mypatil.my" required spellcheck="false" autocomplete="url">
+    <label for="redmine-key">API key</label>
+    <div class="secret"><input id="redmine-key" type="password" required autocomplete="off" spellcheck="false" aria-describedby="key-hint"><button type="button" id="toggle-key" class="quiet" aria-pressed="false">Show</button></div>
+    <p class="note" id="key-hint">Find it in Redmine → My account → API access key. Stored in macOS Keychain; Orbit only reads your open assigned tickets.</p>
+    <div class="form-actions"><button type="button" id="cancel-connect">Cancel</button><button type="submit" id="connect-redmine" class="primary">Connect Redmine</button></div>
+  </form>
+</dialog>
 <!-- live:end -->
-<div class="right-rail">
-<aside id="selection" hidden><span class="eyebrow">SELECTED WORLD</span><h2 id="planet-name"></h2><span id="planet-status" class="status" role="status"></span><p id="planet-description"></p><p id="ticket-details"></p><button id="open-source" type="button" hidden>Open in Redmine ↗</button><button id="enter-orbit" class="primary-action">Enter orbit ↗</button><p id="orbit-hint" class="orbit-hint"></p><button id="complete-planet">Complete task ↗</button><button id="clear">Clear selection</button></aside>
-<footer><div class="legend"><span><i class="comet"></i>Redmine orbit</span><span><i class="blue"></i>ClickUp orbit</span><span><i class="grey"></i>Not started</span></div><p>Drag to rotate · Click a planet</p></footer>
-<details class="controls" open><summary><span class="menu-title">Settings</span><span id="fps">— fps</span></summary><div class="control-body">
-<div class="testing-tabs" role="tablist" aria-label="Orbit settings">
 <!-- demo:start -->
-<button id="planets-tab" type="button" role="tab" aria-selected="true" aria-controls="planets-panel">Planets</button>
+<dialog id="new-task-dialog" class="glass modal" aria-labelledby="new-task-title">
+  <form id="planet-form">
+    <h2 id="new-task-title">New task</h2>
+    <label for="new-name">Task name</label><input id="new-name" name="name" type="text" placeholder="e.g. Review dashboard" required maxlength="60" pattern=".*\S.*" title="Enter a name with at least one non-space character." autocomplete="off">
+    <div class="pair"><label for="new-source">Source<select id="new-source" name="source"><option value="Redmine">Redmine</option><option value="ClickUp">ClickUp</option></select></label><label for="new-status">Starting state<select id="new-status" name="status"><option value="not-started">Not started</option><option value="in-progress">In progress</option></select></label></div>
+    <p class="note" id="placement-hint" aria-live="polite">Starts on the outer waiting ring. Enter orbit whenever you’re ready.</p>
+    <div class="form-actions"><button id="clear-planet-form" type="button">Cancel</button><button class="primary" type="submit">Add planet ↗</button></div>
+    <p id="planet-added" role="status"></p>
+  </form>
+</dialog>
 <!-- demo:end -->
-<!-- live:start -->
-<button id="connection-tab" type="button" role="tab" aria-selected="true" aria-controls="connection-panel">Redmine</button>
-<!-- live:end -->
-<button id="motion-tab" type="button" role="tab" aria-selected="false" aria-controls="motion-panel" tabindex="-1">Motion & quality</button></div>
-<!-- demo:start -->
-<section id="planets-panel" role="tabpanel" aria-labelledby="planets-tab">
-<form id="planet-form">
-<p class="tool-heading">Add a planet</p>
-<label for="new-name">Planet name</label><input id="new-name" name="name" type="text" placeholder="e.g. Review dashboard" required maxlength="60" pattern=".*\S.*" title="Enter a name with at least one non-space character." autocomplete="off">
-<div class="pair"><label for="new-source">Source<select id="new-source" name="source"><option value="Redmine">Redmine</option><option value="ClickUp">ClickUp</option></select></label><label for="new-status">Starting state<select id="new-status" name="status"><option value="not-started">Not started</option><option value="in-progress">In progress</option></select></label></div>
-<p class="placement-hint" id="placement-hint" aria-live="polite">Starts on the outer waiting ring. Enter orbit whenever you’re ready.</p>
-<div class="form-actions"><button id="clear-planet-form" type="button">Clear</button><button class="create-planet" type="submit">Add planet ↗</button></div>
-<p id="planet-added" role="status"></p><p class="prototype-note">For testing only · resets on refresh</p>
-</form><div class="completion-testing"><button id="complete-active" type="button">Complete active planets ↗</button><p class="prototype-note">Test several completions together.</p></div></section>
-<!-- demo:end -->
-<!-- live:start -->
-<section id="connection-panel" role="tabpanel" aria-labelledby="connection-tab"><form id="connection-form">
-<label for="redmine-url">Redmine server</label><input id="redmine-url" type="url" value="https://red.mypatil.my" required spellcheck="false" autocomplete="url">
-<label for="redmine-key">API key</label><input id="redmine-key" type="password" required autocomplete="off" spellcheck="false">
-<p class="prototype-note">Stored in macOS Keychain. Orbit only reads your open assigned tickets.</p><div class="form-actions"><button type="submit" id="connect-redmine" disabled>Connect Redmine</button><button type="button" id="disconnect-redmine" disabled>Disconnect</button></div><p id="connection-feedback" role="status"></p>
-</form></section>
-<!-- live:end -->
-<section id="motion-panel" role="tabpanel" aria-labelledby="motion-tab" hidden>
-<label for="speed">Orbit speed <output id="speed-value">1×</output></label><input id="speed" type="range" min="0" max="3" step="0.1" value="1">
-<div class="pair"><label>Frame limit<select id="frame-limit"><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">Uncapped</option></select></label><label>Resolution<select id="resolution"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select></label></div>
-<label class="check"><input id="stars" type="checkbox" checked> Star field</label><div class="actions"><button id="pause">Pause motion</button><button id="reset">Reset view</button></div><p id="stats"></p>
-</section></div></details></div>
-<aside id="completed-preview" hidden aria-label="Completed system preview"><div class="completion-heading"><span class="eyebrow">COMPLETED SYSTEM</span><span class="completion-mark">↗</span></div><canvas id="completed-space" aria-label="Dust spirals outward and reassembles into completed planets."></canvas><p id="completion-caption" role="status"></p><p class="completion-legend">Redmine · inner orbit &nbsp; / &nbsp; ClickUp · outer orbit</p></aside>
+
+<div id="task-menu" class="glass task-menu" role="menu" hidden><button type="button" role="menuitem" data-action="orbit">Enter orbit</button><button type="button" role="menuitem" data-action="complete">Complete</button><button type="button" role="menuitem" data-action="open">Open task →</button></div>
+
+<aside id="completed-preview" class="glass" hidden aria-label="Completed system preview"><div class="completion-heading"><span class="eyebrow">COMPLETED SYSTEM</span><span class="completion-mark">↗</span></div><canvas id="completed-space" aria-label="Dust spirals outward and reassembles into completed planets."></canvas><p id="completion-caption" role="status"></p><p class="completion-legend">Redmine · inner orbit &nbsp; / &nbsp; ClickUp · outer orbit</p></aside>
 <div id="error" hidden role="alert"></div><script type="module" src="/src/scene.js"></script>
 </body></html>

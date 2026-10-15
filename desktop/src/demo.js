@@ -56,14 +56,16 @@ export function setupDemoTools({ repository, controller, selectTask }) {
   };
   $('new-source').onchange = hint;
   $('new-status').onchange = hint;
-  $('clear-planet-form').onclick = () => { $('planet-form').reset(); $('planet-added').textContent = ''; hint(); $('new-name').focus(); };
+  const dialog = $('new-task-dialog');
+  $('new-task').onclick = () => { $('planet-form').reset(); $('planet-added').textContent = ''; hint(); dialog.showModal(); $('new-name').focus(); };
+  $('clear-planet-form').onclick = () => dialog.close();
   $('planet-form').onsubmit = async event => {
     event.preventDefault();
     const name = $('new-name').value.trim();
     if (!name) return;
     const id = await repository.addTask(name, $('new-source').value, $('new-status').value);
-    $('planet-added').textContent = `Added ${name}`;
     $('new-name').value = '';
+    dialog.close();
     selectTask(id);
   };
   $('complete-active').onclick = async () => {

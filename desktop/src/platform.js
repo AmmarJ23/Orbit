@@ -44,3 +44,11 @@ export async function isFullscreen() {
 export function reportRendering(sample) {
   if (desktop) invoke('report_rendering', { sample }).catch(console.error);
 }
+
+// The app menu's Settings… item (⌘,) asks the webview to open the station card.
+export async function onOpenSettings(handler) {
+  addEventListener('keydown', event => {
+    if (event.key === ',' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); handler(); }
+  });
+  if (desktop) await listen('orbit://open-settings', () => handler());
+}

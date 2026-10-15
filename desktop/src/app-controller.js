@@ -1,4 +1,4 @@
-export const defaultPreferences = { labels: true, stars: true, speed: 1, paused: false, frameLimit: 60, resolution: 1.5 };
+export const defaultPreferences = { labels: true, stars: true, speed: 1, paused: false, frameLimit: 60, resolution: 1.5, depth: true };
 
 // Own hydration/visibility ordering independently of DOM, Three.js and IPC.
 export function createAppController({ repository, view }) {

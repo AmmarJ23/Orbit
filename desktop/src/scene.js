@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCompletionSystem } from './completion.js';
 import { createRenderLoop } from './render-loop.js';
 import { createFramePacer } from './frame-pacer.js';
-import { connectVisibility, isFullscreen, toggleFullscreen, reportRendering, desktop } from './platform.js';
+import { connectVisibility, isFullscreen, toggleFullscreen, reportRendering, desktop, onOpenSettings } from './platform.js';
 import { createAppController } from './app-controller.js';
 import { createAppUI, setupSettingsTabs } from './app-ui.js';
 
@@ -37,7 +37,7 @@ const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.065;
 controls.enablePan = false;
-controls.minDistance = 17;
+controls.minDistance = 21; // Keeps the settings station inside the default framing.
 controls.maxDistance = 48;
 controls.minPolarAngle = 0.2;
 controls.maxPolarAngle = Math.PI / 2.05;
@@ -83,18 +83,58 @@ function ring(radius, color, opacity = 0.6, dashed = false) {
   scene.add(line);
   return line;
 }
-ring(4.2, 0x79bfff, 0.8);
-ring(7.1, 0x9de5f5, 0.7);
+// Soft additive annuli under each orbit line read as a glow without a bloom pass.
+function glow(radius, color, width, opacity) {
+  const mesh = new THREE.Mesh(new THREE.RingGeometry(radius - width, radius + width, 200, 1), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  mesh.rotation.x = -Math.PI / 2;
+  scene.add(mesh);
+  return mesh;
+}
+ring(4.2, 0x79bfff, 0.9);
+glow(4.2, 0x79bfff, 0.05, 0.28); glow(4.2, 0x79bfff, 0.2, 0.06);
+ring(7.1, 0x9de5f5, 0.8);
+glow(7.1, 0x79bfff, 0.05, 0.22); glow(7.1, 0x79bfff, 0.22, 0.05);
 ring(9.5, 0x64789b, 0.22, true);
 const core = rock(1.45, 0x1e3554, 2);
 core.rotation.z = 0.22;
 scene.add(core);
-// Thin translucent annuli give the centre a halo without fullscreen bloom passes.
-for (let i = 0; i < 4; i++) {
-  const halo = new THREE.Mesh(new THREE.RingGeometry(1.7 + i * 0.17, 1.75 + i * 0.17, 100), new THREE.MeshBasicMaterial({color: 0x79bfff, transparent: true, opacity: 0.23 - i * 0.04, side: THREE.DoubleSide, depthWrite: false}));
-  halo.rotation.x = -Math.PI / 2;
-  scene.add(halo);
+function canvasTexture(size, draw) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const texture = new THREE.CanvasTexture(c);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
+// Accretion disc: seeded streaks on a radial falloff, spun slowly around the core.
+const accretion = new THREE.Mesh(new THREE.RingGeometry(1.55, 3.3, 128, 1), new THREE.MeshBasicMaterial({
+  map: canvasTexture(512, (g, s) => {
+    const c = s / 2;
+    const fade = g.createRadialGradient(c, c, s * 0.23, c, c, s / 2);
+    fade.addColorStop(0, 'rgba(162,211,255,0.75)'); fade.addColorStop(0.35, 'rgba(121,191,255,0.32)'); fade.addColorStop(1, 'rgba(121,191,255,0)');
+    g.fillStyle = fade; g.fillRect(0, 0, s, s);
+    g.lineCap = 'round';
+    for (let i = 0; i < 70; i++) {
+      const r = s * (0.25 + random() * 0.24);
+      const start = random() * Math.PI * 2;
+      g.strokeStyle = `rgba(${random() < 0.3 ? '157,229,245' : '162,211,255'},${0.08 + random() * 0.3 * (1 - (r / s - 0.25) * 3)})`;
+      g.lineWidth = 0.6 + random() * 2.2;
+      g.beginPath(); g.arc(c, c, r, start, start + 0.4 + random() * 1.6); g.stroke();
+    }
+  }),
+  transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+// RingGeometry UVs are planar, so the square texture maps straight onto the disc.
+accretion.rotation.x = -Math.PI / 2 + 0.12;
+scene.add(accretion);
+const radialSprite = (inner, outer) => canvasTexture(128, (g, s) => {
+  const gradient = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  gradient.addColorStop(0, inner); gradient.addColorStop(1, outer);
+  g.fillStyle = gradient; g.fillRect(0, 0, s, s);
+});
+const coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialSprite('rgba(121,191,255,0.45)', 'rgba(121,191,255,0)'), depthWrite: false, blending: THREE.AdditiveBlending }));
+coreGlow.scale.setScalar(6.5);
+scene.add(coreGlow);
 const planets = [];
 const arrivals = new Map();
 const tagLayer = document.createElement('div');
@@ -213,7 +253,9 @@ function createPlanet({ name, orbit, radius, color, angle, speed, source, phase 
   const label = document.createElement('div');
   label.className = 'planet-label';
   label.hidden = true;
-  label.append(document.createElement('span'), document.createElement('small'));
+  const leader = document.createElement('i');
+  leader.className = 'leader';
+  label.append(document.createElement('span'), document.createElement('small'), leader);
   label.firstChild.textContent = name;
   labelLayer.append(label);
   mesh.userData = {
@@ -256,6 +298,65 @@ starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPosit
 starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors,3));
 const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({size: 0.12, vertexColors: true, transparent: true, opacity: 0.95}));
 scene.add(stars);
+
+// Depth layer (quality setting): far nebula sprites and dark rocks fixed near the camera.
+const depthLayer = new THREE.Group();
+const nebulaTexture = canvasTexture(256, (g, s) => {
+  for (let i = 0; i < 14; i++) {
+    const x = s * (0.2 + random() * 0.6), y = s * (0.3 + random() * 0.4), r = s * (0.12 + random() * 0.2);
+    const gradient = g.createRadialGradient(x, y, 0, x, y, r);
+    gradient.addColorStop(0, random() < 0.4 ? 'rgba(157,229,245,0.16)' : 'rgba(72,152,217,0.2)');
+    gradient.addColorStop(1, 'rgba(30,42,67,0)');
+    g.fillStyle = gradient; g.fillRect(0, 0, s, s);
+  }
+});
+for (const [x, y, z, size, turn] of [[-38, 14, -52, 70, 0.3], [30, 6, -58, 60, -0.5], [52, -4, 10, 54, 1.1], [-50, 2, 26, 48, 2]]) {
+  const cloud = new THREE.Sprite(new THREE.SpriteMaterial({ map: nebulaTexture, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, rotation: turn }));
+  cloud.position.set(x, y, z); cloud.scale.set(size, size * 0.55, 1);
+  depthLayer.add(cloud);
+}
+const foreground = new THREE.Group();
+for (const [x, y, z, size] of [[-5.6, -3.9, -10, 1.5], [-3.9, -4.1, -9, 0.7], [5.8, -3.8, -10.5, 1.3], [4.1, -4.0, -8.5, 0.6]]) {
+  const boulder = rock(size, 0x111a2c, 1);
+  boulder.material.roughness = 1;
+  boulder.material.transparent = true; boulder.material.opacity = 0.8;
+  boulder.position.set(x, y, z);
+  boulder.rotation.set(random() * 3, random() * 3, random() * 3);
+  foreground.add(boulder);
+}
+camera.add(foreground);
+scene.add(camera, depthLayer);
+
+// Settings live on a station parked outside the outer ring. It spins in place and never orbits.
+const station = new THREE.Group();
+const stationMaterial = new THREE.MeshStandardMaterial({ color: 0x79bfff, flatShading: true, roughness: 0.6, metalness: 0.3, emissive: 0x79bfff, emissiveIntensity: 0.05 });
+const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x2c5f99, flatShading: true, roughness: 0.4, metalness: 0.5, emissive: 0x79bfff, emissiveIntensity: 0.03 });
+const stationBody = new THREE.Group();
+stationBody.add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.9, 6), stationMaterial));
+const habitat = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.13, 5, 12), stationMaterial);
+habitat.rotation.x = Math.PI / 2;
+stationBody.add(habitat);
+for (let i = 0; i < 3; i++) {
+  const spoke = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.06, 0.06), stationMaterial);
+  spoke.rotation.y = i * Math.PI / 3;
+  stationBody.add(spoke);
+}
+const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 5), stationMaterial);
+mast.position.y = 0.2;
+station.add(mast);
+for (const side of [-1, 1]) {
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.03, 0.42), panelMaterial);
+  wing.position.set(0, 1.25 * side + 0.2, 0);
+  wing.scale.set(1.6, 1, 1);
+  station.add(wing);
+}
+station.add(stationBody);
+station.position.set(12, 3.2, -7);
+station.rotation.set(0.35, 0, -0.25);
+station.scale.setScalar(0.85);
+scene.add(station);
+let stationHover = false;
+let stationNeedsSetup = false;
 const selectionRing = new THREE.Mesh(new THREE.RingGeometry(1.2,1.23,64),new THREE.MeshBasicMaterial({color:0xe0f4ff,side:THREE.DoubleSide,transparent:true,opacity:0.65,depthWrite:false}));
 selectionRing.visible = false;
 scene.add(selectionRing);
@@ -294,7 +395,7 @@ function select(planet) {
   ui?.selected();
   if (planet) {
     refreshSelection();
-    if (matchMedia('(max-width: 700px)').matches) document.querySelector('.controls').open = false;
+    closeSettings();
   }
 }
 function refreshSelection() {
@@ -304,26 +405,27 @@ function refreshSelection() {
   const isLeaving = transfer?.kind === 'out';
   const destination = source === 'Redmine' ? 'inner' : 'outer';
   $('planet-name').textContent = name;
+  $('planet-source').textContent = source;
   const saving = busyTasks.has(selected.userData.task?.id);
   $('ticket-details').textContent = DEMO ? '' : '#' + selected.userData.task.externalId
     + (selected.userData.task.project ? '\n' + selected.userData.task.project : '')
     + (selected.userData.task.priority ? ' · ' + selected.userData.task.priority : '');
-  $('open-source').hidden = DEMO;
+  $('open-source').hidden = DEMO || !selected.userData.task.url;
   $('complete-planet').disabled = saving || !!forming || !!transfer || !!completion || status === 'completed';
-  $('complete-planet').textContent = completion ? 'Completing…' : status === 'completed' ? 'Completed ✓' : 'Complete task ↗';
+  $('complete-planet').textContent = completion ? 'Completing…' : status === 'completed' ? 'Completed ✓' : 'Complete ✓';
   $('enter-orbit').hidden = !!completion || status === 'completed';
   if (completion || status === 'completed') {
     $('planet-status').textContent = completion ? 'Completing' : 'Completed';
-    $('planet-description').textContent = `${source} · ${completion ? 'Travelling to' : 'Settled in'} the completed system`;
+    $('planet-description').textContent = `${completion ? 'Travelling to' : 'Settled in'} the completed system`;
     const stageLabel = { approaching: 'Approaching the centre', circling: 'Circling the centre', stretching: 'Stretching under gravity', breaking: 'Breaking into dust', absorbing: 'Debris falling into the centre', emerging: 'Reassembling in the completed system' };
     $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Approaching the centre'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit.`;
     return;
   }
   $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
   $('planet-status').classList.toggle('active', !isWaiting);
-  $('planet-description').textContent = `${source} · ${isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`}`;
+  $('planet-description').textContent = isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`;
   $('enter-orbit').disabled = saving || !!transfer || !!forming;
-  $('enter-orbit').textContent = forming ? 'Forming planet…' : transfer ? isLeaving ? 'De-orbiting…' : 'Entering orbit…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
+  $('enter-orbit').textContent = forming ? 'Forming…' : transfer ? isLeaving ? 'De-orbiting…' : 'Entering…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
   $('orbit-hint').textContent = forming
     ? `Dust is gathering into a new world${paused ? ' · motion paused' : '…'}`
     : transfer
@@ -374,24 +476,28 @@ canvas.addEventListener('pointermove', e => {
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
   hovered = raycaster.intersectObjects(pickable())[0]?.object ?? null;
-  canvas.style.cursor = hovered ? 'pointer' : '';
+  stationHover = !hovered && raycaster.intersectObject(station, true).length > 0;
+  canvas.style.cursor = hovered || stationHover ? 'pointer' : '';
 });
-canvas.addEventListener('pointerleave', () => { hovered = null; });
+canvas.addEventListener('pointerleave', () => { hovered = null; stationHover = false; });
 canvas.addEventListener('pointerdown', e => { down = {x:e.clientX, y:e.clientY}; });
 canvas.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX-down.x,e.clientY-down.y)>5) return;
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
-  select(raycaster.intersectObjects(pickable())[0]?.object ?? null);
+  const planet = raycaster.intersectObjects(pickable())[0]?.object ?? null;
+  if (!planet && raycaster.intersectObject(station, true).length) { select(null); openSettings(); }
+  else { closeSettings(); select(planet); }
   down = null;
 });
 $('clear').onclick = () => select(null);
 const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 // Panels are translucent, so labels must not slide underneath them. Re-read a few times a second.
 let panelRects = [];
+let placedLabels = [];
 let panelRectsAt = -Infinity;
 function readPanelRects() {
-  panelRects = [...document.querySelectorAll('header .brand, .header-actions, .intro, footer, #selection:not([hidden]), .controls, .task-panel, #completed-preview:not([hidden])')]
+  panelRects = [...document.querySelectorAll('header > *, .intro, .sources, .system-switch, .scene-controls, #selection:not([hidden]), #settings:not([hidden]), #completed-preview:not([hidden])')]
     .map(el => { const r = el.getBoundingClientRect(); return { x: r.left - 8, y: r.top - 8, w: r.width + 16, h: r.height + 16 }; });
   panelRectsAt = performance.now();
 }
@@ -405,21 +511,24 @@ function updateLabels() {
     const focus = planet === selected || planet === hovered;
     const waiting = data.status === 'not-started' || data.transfer?.kind === 'out';
     const hidden = data.completion || data.status === 'completed' || data.forming || arrivals.has(planet);
-    if (hidden || ((waiting || !showLabels) && !focus)) { data.label.hidden = true; continue; }
+    if (hidden || (!showLabels && !focus)) { data.label.hidden = true; continue; }
     projected.copy(planet.position).project(camera);
     if (projected.z > 1) { data.label.hidden = true; continue; }
     const distance = camera.position.distanceTo(planet.position);
-    candidates.push({ planet, focus, waiting, x: (projected.x * 0.5 + 0.5) * innerWidth, y: (-projected.y * 0.5 + 0.5) * innerHeight, offset: data.radius * pixelsPerUnit / distance + 8 });
+    // Waiting exoplanets sit further out on a dashed leader, as in the concept.
+    candidates.push({ planet, focus, waiting, x: (projected.x * 0.5 + 0.5) * innerWidth, y: (-projected.y * 0.5 + 0.5) * innerHeight, offset: data.radius * pixelsPerUnit / distance + (waiting ? 36 : 8), lead: waiting ? 30 : 0 });
   }
   // Greedy placement: focused planets first; labels that would overlap another are dropped.
   candidates.sort((a, b) => b.focus - a.focus);
-  const placed = [];
-  for (const { planet, focus, waiting, x, y, offset } of candidates) {
+  const placed = placedLabels = [];
+  for (const { planet, focus, waiting, x, y, offset, lead } of candidates) {
     const data = planet.userData;
-    const meta = waiting ? `${data.source} · Not started` : data.source;
-    if (data.label.lastChild.textContent !== meta) data.label.lastChild.textContent = meta;
+    const meta = waiting ? 'Not started' : data.source;
+    if (data.label.children[1].textContent !== meta) data.label.children[1].textContent = meta;
     data.label.dataset.source = data.source.toLowerCase();
     data.label.classList.toggle('focus', focus);
+    data.label.classList.toggle('waiting', waiting);
+    data.label.lastChild.style.cssText = lead ? `left:${-lead - 4}px;width:${lead}px` : 'display:none';
     data.label.hidden = false;
     // Measure only when the text changes; reading layout every frame is wasteful.
     if (data.labelKey !== meta) { data.labelKey = meta; data.labelWidth = data.label.offsetWidth; }
@@ -432,6 +541,106 @@ function updateLabels() {
 $('labels-toggle').onclick = () => controller.savePreferences({ labels: !showLabels });
 $('pause').onclick = () => controller.savePreferences({ paused: !paused });
 $('reset').onclick = () => { controls.reset(); select(null); };
+function zoom(factor) {
+  const offset = camera.position.clone().sub(controls.target);
+  offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance));
+  camera.position.copy(controls.target).add(offset);
+}
+$('zoom-in').onclick = () => zoom(0.85);
+$('zoom-out').onclick = () => zoom(1.18);
+// Frame-rate readout is a local debugging aid, not a synced preference.
+let debug = false;
+try { debug = localStorage.getItem('orbit:debug') === '1'; } catch {}
+function setDebug(value) {
+  debug = value;
+  $('debug').checked = value; $('fps').hidden = !value; $('stats').hidden = !value;
+  try { localStorage.setItem('orbit:debug', value ? '1' : '0'); } catch {}
+}
+$('debug').onchange = e => setDebug(e.target.checked);
+setDebug(debug);
+$('depth').onchange = e => controller.savePreferences({ depth: e.target.checked });
+
+// Station settings card: anchored beside the station, closed by Esc or an outside click.
+const settingsCard = $('settings');
+const tabs = setupSettingsTabs();
+function openSettings() {
+  if (!settingsCard.hidden) return;
+  select(null);
+  tabs.showFirst();
+  settingsCard.hidden = false;
+  positionSettings();
+  settingsCard.querySelector('[role=tab][aria-selected=true]')?.focus();
+}
+function closeSettings() {
+  if (settingsCard.hidden) return;
+  settingsCard.hidden = true;
+}
+function positionSettings() {
+  if (settingsCard.hidden) return;
+  station.getWorldPosition(projected).project(camera);
+  const x = (projected.x * 0.5 + 0.5) * innerWidth;
+  const y = (-projected.y * 0.5 + 0.5) * innerHeight;
+  const w = settingsCard.offsetWidth, h = settingsCard.offsetHeight;
+  const left = x + 40 + w < innerWidth - 16 ? x + 40 : x - 40 - w;
+  settingsCard.style.transform = `translate(${THREE.MathUtils.clamp(left, 16, innerWidth - w - 16)}px, ${THREE.MathUtils.clamp(y - 60, 16, innerHeight - h - 16)}px)`;
+}
+$('close-settings').onclick = closeSettings;
+addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+  if (!settingsCard.hidden) closeSettings();
+  else if (selected) select(null);
+});
+document.addEventListener('pointerdown', event => {
+  // Canvas clicks are resolved on pointerup so a click on the station toggles cleanly.
+  if (!settingsCard.hidden && !event.target.closest('#settings, dialog, #space')) closeSettings();
+});
+onOpenSettings(openSettings).catch(console.error);
+
+// Ring labels follow the near side of each orbit as the view turns.
+const ringLayer = document.createElement('div');
+ringLayer.className = 'ring-labels';
+ringLayer.setAttribute('aria-hidden', 'true');
+labelLayer.after(ringLayer);
+const ringLabels = [[4.2, '01', 'Redmine', 0.55], [7.1, '02', 'ClickUp', 0.32]].map(([radius, number, name, lean]) => {
+  const el = document.createElement('div');
+  el.className = 'ring-label';
+  el.hidden = true; // Shown once the first frame projects it.
+  el.append(Object.assign(document.createElement('b'), { textContent: number }), name);
+  ringLayer.append(el);
+  return { el, radius, lean };
+});
+const ringPoint = new THREE.Vector3();
+function updateOverlays(now) {
+  const facing = Math.atan2(camera.position.z, camera.position.x);
+  for (const { el, radius, lean } of ringLabels) {
+    ringPoint.set(Math.cos(facing + lean) * radius, 0, Math.sin(facing + lean) * radius).project(camera);
+    // Task titles win: a ring label steps aside when it would cover one.
+    const rect = { x: (ringPoint.x * 0.5 + 0.5) * innerWidth, y: (-ringPoint.y * 0.5 + 0.5) * innerHeight + 6, w: 96, h: 18 };
+    el.hidden = placedLabels.some(r => overlaps(rect, r)) || panelRects.some(r => overlaps(rect, r));
+    el.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
+  }
+  // Station: hover brightens it; an unconfigured Redmine connection makes it pulse softly.
+  const pulse = stationNeedsSetup ? 0.5 + 0.5 * Math.sin(now / 1000 * 2.4) : 0;
+  stationMaterial.emissiveIntensity = stationHover || !settingsCard.hidden ? 0.55 : 0.05 + pulse * 0.35;
+  station.getWorldPosition(projected).project(camera);
+  const label = $('station-label');
+  label.classList.toggle('visible', stationHover && settingsCard.hidden);
+  label.style.transform = `translate(${(projected.x * 0.5 + 0.5) * innerWidth - 30}px, ${(-projected.y * 0.5 + 0.5) * innerHeight - 70}px)`;
+  positionSettings();
+  positionCallout();
+}
+const calloutPoint = new THREE.Vector3();
+function positionCallout() {
+  if (!selected) return;
+  const card = $('selection');
+  calloutPoint.copy(selected.position).project(camera);
+  const x = (calloutPoint.x * 0.5 + 0.5) * innerWidth;
+  const y = (-calloutPoint.y * 0.5 + 0.5) * innerHeight;
+  const w = card.offsetWidth, h = card.offsetHeight;
+  const gap = 34;
+  const left = x + gap + w < innerWidth - 16 && x < innerWidth * 0.62 ? x + gap : x - gap - w;
+  card.style.transform = `translate(${THREE.MathUtils.clamp(left, 16, innerWidth - w - 16)}px, ${THREE.MathUtils.clamp(y - h - 12, 70, innerHeight - h - 76)}px)`;
+}
 $('speed').oninput = e => { speed = Number(e.target.value); $('speed-value').textContent = speed.toFixed(1) + '×'; };
 $('speed').onchange = e => controller.savePreferences({ speed: Number(e.target.value) });
 $('frame-limit').onchange = e => controller.savePreferences({ frameLimit: Number(e.target.value) });
@@ -461,6 +670,9 @@ resize();
 function updateScene(delta) {
   if (!paused) simulationTime += delta*speed;
   core.rotation.y = simulationTime*0.035;
+  accretion.rotation.z = -simulationTime*0.06;
+  stationBody.rotation.y = simulationTime*0.25;
+  foreground.rotation.z = Math.sin(simulationTime*0.05)*0.01;
   dustMesh.rotation.y = simulationTime*0.009;
   for (const planet of planets) {
     const data = planet.userData;
@@ -490,7 +702,8 @@ function updateScene(delta) {
     }
     const { orbit } = data;
     planet.position.set(Math.cos(phase)*orbit,Math.sin(phase*2)*0.08,Math.sin(phase)*orbit);
-    planet.rotation.y = data.spinAngle + simulationTime*0.09;
+    // Waiting exoplanets stay still; only worlds in motion spin.
+    if (data.status !== 'not-started' || data.transfer) planet.rotation.y = data.spinAngle + simulationTime*0.09;
   }
   if (selected) {
     selectionRing.visible = selected.visible && selected.userData.status !== 'completed';
@@ -512,6 +725,7 @@ function animate(now) {
   controls.update();
   updateArrivalTags();
   updateLabels();
+  updateOverlays(now);
   renderer.render(scene,camera);
   completionSystem.render(renderer.getPixelRatio());
   frames++;
@@ -645,6 +859,10 @@ function applySnapshot(snapshot, { settle, animate }) {
   const preferences = snapshot.preferences;
   paused = preferences.paused; speed = preferences.speed; frameLimit = preferences.frameLimit; showLabels = preferences.labels;
   stars.visible = preferences.stars;
+  const depth = preferences.depth ?? true;
+  depthLayer.visible = depth; foreground.visible = depth; $('depth').checked = depth;
+  stationNeedsSetup = !DEMO && !snapshot.connection?.connected;
+  $('empty-scene').hidden = snapshot.tasks.some(task => task.state !== 'completed');
   if (renderer.getPixelRatio() !== preferences.resolution) { renderer.setPixelRatio(preferences.resolution); resize(); }
   $('labels-toggle').setAttribute('aria-pressed', String(showLabels));
   $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
@@ -652,8 +870,6 @@ function applySnapshot(snapshot, { settle, animate }) {
   $('frame-limit').value = frameLimit; $('resolution').value = preferences.resolution; $('stars').checked = preferences.stars;
   ui.render(snapshot); refreshSelection(); updateLabels();
 }
-setupSettingsTabs();
-if (DEMO) document.querySelector('.menu-title').textContent = 'Testing menu';
 ui = createAppUI({ controller: () => controller, selectTask: id => select(taskPlanets.get(id)), selectedId: () => selected?.userData.task.id });
 for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
 async function boot() {

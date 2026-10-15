@@ -165,12 +165,16 @@ fn main() {
             }
             let show =
                 MenuItem::with_id(app, "show-orbit", "Show Orbit", true, Some("CmdOrCtrl+1"))?;
+            let settings =
+                MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
             let app_menu = Submenu::with_items(
                 app,
                 "Orbit",
                 true,
                 &[
                     &PredefinedMenuItem::about(app, Some("About Orbit"), None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &settings,
                     &PredefinedMenuItem::separator(app)?,
                     &show,
                     &PredefinedMenuItem::hide(app, Some("Hide Orbit"))?,
@@ -239,8 +243,14 @@ fn main() {
             Ok(())
         })
         .on_menu_event(|app, event| {
-            if event.id().as_ref() == "show-orbit" {
-                show_main(app);
+            match event.id().as_ref() {
+                "show-orbit" => show_main(app),
+                // The station card lives in the webview; the menu only asks it to open.
+                "settings" => {
+                    show_main(app);
+                    let _ = app.emit_to("main", "orbit://open-settings", ());
+                }
+                _ => {}
             }
         })
         .on_window_event(|window, event| {
