@@ -1,0 +1,43 @@
+{
+  "brand": "Orbit",
+  "deck_title": "Logo kit",
+  "tagline": "Your tasks, in orbit",
+  "brief": "Orbit is a local desktop task companion: Redmine and ClickUp tasks become low-poly planets circling on source orbits, and finished work falls into a separate system. The mark should keep the current icon's faceted planet and comet-blue ring, but read as a low-poly world rather than a cube, and hold up at 16 px.",
+  "adjectives": ["calm", "focused", "spatial", "crafted"],
+  "criteria": "Keep the hex planet + ring equity; make it unmistakably low-poly; work in one colour, on midnight and on white, and at favicon size.",
+  "industry": "software",
+  "nav": ["Overview", "Tasks", "Notes"],
+  "brand_color": "#245BA8",
+  "tile_color": "#0C1222",
+  "greyscale": false,
+  "final": true,
+  "designer": "Orbit",
+  "round": 3,
+  "concepts": [
+    {
+      "name": "Shaded Facets",
+      "symbol": "masters/orbit-symbol-light.svg",
+      "lockup": "masters/orbit-lockup-horizontal-light.svg",
+      "stacked": "masters/orbit-lockup-stacked-light.svg",
+      "symbol_on_tile": "masters/orbit-symbol-dark.svg",
+      "symbol_on_dark": "masters/orbit-symbol-dark.svg",
+      "lockup_on_dark": "masters/orbit-lockup-horizontal-dark.svg",
+      "lockup_on_tile": "masters/orbit-lockup-horizontal-dark.svg",
+      "stacked_on_dark": "masters/orbit-lockup-stacked-dark.svg",
+      "stacked_on_tile": "masters/orbit-lockup-stacked-dark.svg",
+      "idea": "The app's own low-poly planet: ten lit facets inside the familiar hexagon, with one comet-blue orbit passing in front.",
+      "rationale": [
+        "Keeps the current icon's hexagon, ring and blues, so it still reads as Orbit",
+        "An icosphere cut with no centre 'Y', so it reads as a planet, not a cube",
+        "The five facet tones are the app palette; the planets in the scene share the mark's DNA",
+        "Small-size cut merges facets into three tones; the one-colour version keeps the facets as seams"
+      ]
+    }
+  ],
+  "recommendation": "Shaded Facets, used as the app icon on the midnight tile and as the horizontal lockup in the app header.",
+  "next_steps": [
+    "Swap desktop/src-tauri/icons to the new app icon",
+    "Use the horizontal lockup in the station / header UI",
+    "Run a trademark search before any public release"
+  ]
+}
