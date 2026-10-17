@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Orbit · Planetary study</title><link rel="stylesheet" href="/style.css"></head>
 <body>
 <canvas id="space" aria-label="Interactive low-poly planetary system. Drag to rotate the view."></canvas>
-<header><div class="brand"><span class="mark">◌</span> Orbit <span class="tag">MOTION STUDY / 01</span></div><button id="fullscreen">Fullscreen ↗</button></header>
+<header><div class="brand"><span class="mark">◌</span> Orbit <span class="tag">MOTION STUDY / 01</span></div><div class="header-actions"><button type="button" id="labels-toggle" aria-pressed="true" title="Show task labels on active planets">Labels</button><button id="fullscreen">Fullscreen ↗</button></div></header>
 <section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1>Your active universe.</h1><p>Low-poly worlds. A quieter kind of motion.</p></section>
 <aside id="selection" hidden><span class="eyebrow">SELECTED WORLD</span><h2 id="planet-name"></h2><span id="planet-status" class="status" role="status"></span><p id="planet-description"></p><button id="enter-orbit" class="primary-action">Enter orbit ↗</button><p id="orbit-hint" class="orbit-hint"></p><button id="complete-planet">Complete task ↗</button><button id="clear">Clear selection</button></aside>
 <footer><div class="legend"><span><i class="comet"></i>Redmine orbit</span><span><i class="blue"></i>ClickUp orbit</span><span><i class="grey"></i>Not started</span></div><p>Drag to rotate · Click a planet</p></footer>

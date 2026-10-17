@@ -8,3 +8,7 @@
 @media(min-width:701px){body:has(#selection:not([hidden])) .controls[open] .control-body{max-height:280px}}
 
 @media(max-width:700px){#completed-preview{top:190px;bottom:auto}#completed-space{height:160px}body:has(#completed-preview:not([hidden])) .controls[open] .control-body{max-height:160px}body:has(#completed-preview:not([hidden])) #selection{visibility:hidden}}
+
+.header-actions{display:flex;gap:10px;align-items:center}#labels-toggle{color:#a6b5cf}#labels-toggle[aria-pressed=true]{color:#a2d3ff;border-color:#79bfff}
+.planet-labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}.planet-label{position:absolute;top:0;left:0;padding-left:9px;border-left:1px solid #79bfff99;white-space:nowrap;max-width:190px;will-change:transform}.planet-label[hidden]{display:none}.planet-label span{display:block;overflow:hidden;text-overflow:ellipsis;font:11px/15px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.3px;color:#e3f1ff;text-shadow:0 1px 5px #0c1222,0 0 8px #0c1222}.planet-label small{display:block;font-size:10px;line-height:15px;color:#a6b5cf;text-shadow:0 1px 5px #0c1222}.planet-label[data-source=clickup]{border-left-color:#9de5f599}.planet-label.focus span{color:#fff}
+@media(max-width:700px){.planet-label{max-width:130px}}

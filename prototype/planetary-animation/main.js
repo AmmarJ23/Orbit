@@ -200,10 +200,21 @@ const specs = [
   ['Echo', 9.5, 0.38, 0x465d7a, 0.1, 0, 'Not started · stationary'],
   ['Solace', 9.5, 0.53, 0x8095ac, 4.8, 0, 'Not started · stationary'],
 ];
+const labelLayer = document.createElement('div');
+labelLayer.className = 'planet-labels';
+labelLayer.setAttribute('aria-hidden', 'true');
+canvas.after(labelLayer); // Below panels and menus in paint order.
 function createPlanet({ name, orbit, radius, color, angle, speed, source, phase = angle }) {
   const mesh = rock(radius, color);
+  // Persistent label: name plus source/state line, positioned every frame.
+  const label = document.createElement('div');
+  label.className = 'planet-label';
+  label.hidden = true;
+  label.append(document.createElement('span'), document.createElement('small'));
+  label.firstChild.textContent = name;
+  labelLayer.append(label);
   mesh.userData = {
-    name, orbit, radius, angle, speed, source,
+    name, orbit, radius, angle, speed, source, label,
     spinAngle: angle, baseColor: new THREE.Color(color),
     status: speed ? 'in-progress' : 'not-started', transfer: null,
   };
@@ -413,15 +424,71 @@ $('complete-active').onclick = () => {
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let down = null;
+let hovered = null;
+let showLabels = true; // Off: labels appear only on hover or selection.
+const pickable = () => planets.filter(planet => planet.visible && !planet.userData.completion && planet.userData.status !== 'completed');
+// Hover reveals a label for waiting planets, or for any planet while labels are off.
+canvas.addEventListener('pointermove', e => {
+  if (e.buttons) return;
+  pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
+  raycaster.setFromCamera(pointer,camera);
+  hovered = raycaster.intersectObjects(pickable())[0]?.object ?? null;
+  canvas.style.cursor = hovered ? 'pointer' : '';
+});
+canvas.addEventListener('pointerleave', () => { hovered = null; });
 canvas.addEventListener('pointerdown', e => { down = {x:e.clientX, y:e.clientY}; });
 canvas.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX-down.x,e.clientY-down.y)>5) return;
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
-  select(raycaster.intersectObjects(planets.filter(planet => planet.visible && !planet.userData.completion && planet.userData.status !== 'completed'))[0]?.object ?? null);
+  select(raycaster.intersectObjects(pickable())[0]?.object ?? null);
   down = null;
 });
 $('clear').onclick = () => select(null);
+const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+// Panels are translucent, so labels must not slide underneath them. Re-read a few times a second.
+let panelRects = [];
+let panelRectsAt = -Infinity;
+function readPanelRects() {
+  panelRects = [...document.querySelectorAll('header .brand, .header-actions, .intro, footer, #selection:not([hidden]), .controls, #completed-preview:not([hidden])')]
+    .map(el => { const r = el.getBoundingClientRect(); return { x: r.left - 8, y: r.top - 8, w: r.width + 16, h: r.height + 16 }; });
+  panelRectsAt = performance.now();
+}
+function updateLabels() {
+  if (performance.now() - panelRectsAt > 250) readPanelRects();
+  camera.updateMatrixWorld(); // Projection must not depend on a frame having rendered (e.g. toggled while hidden).
+  const pixelsPerUnit = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) * camera.zoom;
+  const candidates = [];
+  for (const planet of planets) {
+    const data = planet.userData;
+    const focus = planet === selected || planet === hovered;
+    const waiting = data.status === 'not-started' || data.transfer?.kind === 'out';
+    const hidden = data.completion || data.status === 'completed' || data.forming || arrivals.has(planet);
+    if (hidden || ((waiting || !showLabels) && !focus)) { data.label.hidden = true; continue; }
+    projected.copy(planet.position).project(camera);
+    if (projected.z > 1) { data.label.hidden = true; continue; }
+    const distance = camera.position.distanceTo(planet.position);
+    candidates.push({ planet, focus, waiting, x: (projected.x * 0.5 + 0.5) * innerWidth, y: (-projected.y * 0.5 + 0.5) * innerHeight, offset: data.radius * pixelsPerUnit / distance + 8 });
+  }
+  // Greedy placement: focused planets first; labels that would overlap another are dropped.
+  candidates.sort((a, b) => b.focus - a.focus);
+  const placed = [];
+  for (const { planet, focus, waiting, x, y, offset } of candidates) {
+    const data = planet.userData;
+    const meta = waiting ? `${data.source} · Not started` : data.source;
+    if (data.label.lastChild.textContent !== meta) data.label.lastChild.textContent = meta;
+    data.label.dataset.source = data.source.toLowerCase();
+    data.label.classList.toggle('focus', focus);
+    data.label.hidden = false;
+    // Measure only when the text changes; reading layout every frame is wasteful.
+    if (data.labelKey !== meta) { data.labelKey = meta; data.labelWidth = data.label.offsetWidth; }
+    const rect = { x: x + offset, y: y - 15, w: data.labelWidth, h: 32 };
+    if (panelRects.some(r => overlaps(rect, r)) || (!focus && placed.some(r => overlaps(rect, r)))) { data.label.hidden = true; continue; }
+    placed.push(rect);
+    data.label.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
+  }
+}
+$('labels-toggle').onclick = () => { showLabels = !showLabels; $('labels-toggle').setAttribute('aria-pressed', String(showLabels)); updateLabels(); };
 $('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume motion' : 'Pause motion'; refreshSelection(); };
 $('reset').onclick = () => { controls.reset(); select(null); };
 $('speed').oninput = e => { speed = Number(e.target.value); $('speed-value').textContent = `${speed.toFixed(1)}×`; };
@@ -500,6 +567,7 @@ function animate(now) {
   completionSystem.update(Math.min(elapsed/1000,0.1), paused, speed);
   controls.update();
   updateArrivalTags();
+  updateLabels();
   renderer.render(scene,camera);
   completionSystem.render(renderer.getPixelRatio());
   frames++;
