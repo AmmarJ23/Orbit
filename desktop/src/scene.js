@@ -1004,7 +1004,7 @@ function applySnapshot(snapshot, { settle, animate }) {
   ui.render(snapshot); tasksView.render(snapshot); refreshSelection(); updateLabels();
 }
 tasksView = createTasksView({ controller: () => controller, focusTask });
-ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem, openTasks: () => tasksView.open() });
+ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem, openTasks: source => tasksView.open(source) });
 for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
 async function boot() {
   let repository;

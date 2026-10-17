@@ -48,25 +48,25 @@ header>*{pointer-events:auto}
 .edge-fade{-webkit-mask-image:linear-gradient(transparent var(--fade-a),#000 var(--fade-b),#000 var(--fade-c),transparent var(--fade-d));mask-image:linear-gradient(transparent var(--fade-a),#000 var(--fade-b),#000 var(--fade-c),transparent var(--fade-d));-webkit-mask-size:100% calc(100% + 128px);mask-size:100% calc(100% + 128px);-webkit-mask-position:0 -64px;mask-position:0 -64px;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-clip:no-clip;mask-clip:no-clip}
 .card-head{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:9px 10px;cursor:default}
 .card-head:hover:not(:disabled){background:transparent}
-.card-title{font-size:13px;font-weight:600;flex:1;text-align:left}.card-count{color:var(--muted);font-size:11px}
+.card-title{font-size:14px;font-weight:600;flex:1;text-align:left}.card-count{color:var(--muted);font-size:12px}
 .source-icon{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;font-size:11px;font-weight:700;flex-shrink:0}
 .source-icon.redmine{background:#ff91a422;color:var(--danger)}.source-icon.clickup{background:#9de5f522;color:var(--cyan)}.source-icon.notes{background:#79bfff22;color:var(--primary)}
 .card-body{padding:0 8px}
 .card-status{display:flex;align-items:center;justify-content:space-between;gap:8px}
-#connection-status,#sync-status,.task-empty,#connection-feedback,#clickup-connection-status,#clickup-sync-status,#clickup-feedback{font-size:11px;line-height:1.6;color:var(--muted);margin:2px 0 6px;overflow-wrap:anywhere}
+#connection-status,#sync-status,.task-empty,#connection-feedback,#clickup-connection-status,#clickup-sync-status,#clickup-feedback{font-size:12px;line-height:1.6;color:var(--muted);margin:2px 0 6px;overflow-wrap:anywhere}
 #sync-status:empty,#connection-feedback:empty,#clickup-sync-status:empty,#clickup-feedback:empty,#clickup-connection-status:empty{display:none}
 #open-connect,#clickup-open-connect{width:100%;margin:4px 0 6px}
 .task-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .task-list:empty{display:none}
 .task-list li{display:flex;align-items:center;gap:6px;padding:2px 2px 2px 0;border-radius:8px;background:#0c122266;border:1px solid transparent}
 .task-list li[data-selected=true]{border-color:#79bfff88;background:#79bfff12}
-.task-row{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:transparent;padding:8px 4px 8px 10px;text-align:left}
+.task-row{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:transparent;padding:8px 4px 8px 10px;text-align:left;font-size:13px}
 .task-row:hover:not(:disabled){background:transparent}
 .task-row span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--control)}
 [data-state=in-progress] .dot{background:var(--primary);box-shadow:0 0 8px var(--primary)}[data-state=completed] .dot{background:var(--success)}
-.pill{flex-shrink:0;padding:3px 7px;border:1px solid #64789b66;border-radius:5px;color:var(--muted);font-size:10px}
-[data-state=in-progress] .pill{color:var(--primary-hover);border-color:#79bfff66;background:#79bfff0d}[data-state=completed] .pill{color:var(--success);border-color:#75d6ba55}
+.pill{flex-shrink:0;padding:3px 8px;border-radius:6px;color:var(--muted);font-size:11px;font-weight:500;background:#64789b26}.pill:empty{display:none}
+[data-state=in-progress] .pill{color:var(--primary-hover);background:#79bfff1f}[data-state=completed] .pill{color:var(--success);background:#75d6ba1f}
 .more{border:0;background:transparent;color:var(--muted);padding:4px 8px;letter-spacing:1px}
 .task-menu{position:fixed;z-index:30;display:flex;flex-direction:column;padding:4px;min-width:150px}
 .task-menu button{border:0;background:transparent;text-align:left;padding:8px 10px}
@@ -162,29 +162,44 @@ i{display:block;width:7px;height:7px;border-radius:50%}.comet{background:var(--p
 @media(max-height:760px){.intro .eyebrow,.scene-hint{display:none}.intro{top:64px}.intro h1{font-size:21px;margin-top:0}.sources{top:124px;max-height:calc(100dvh - 124px - 84px)}#completed-space{height:150px}}
 
 /* Tasks tab: a full task manager floating over the scene. */
-body.tasks-open :is(.intro,.sources,.scene-hint,#selection,.system-switch,.legend,#completed-preview){visibility:hidden}
-.tasks-view{position:fixed;top:72px;left:var(--edge);right:var(--edge);bottom:20px;z-index:6;display:flex;flex-direction:column;padding:18px 18px 10px;max-width:1100px;margin:0 auto}
+body.tasks-open :is(.intro,.sources,.scene-hint,#selection,.system-switch,.legend,.scene-controls,#completed-preview){visibility:hidden}
+.tasks-view{position:fixed;top:72px;left:var(--edge);right:var(--edge);bottom:20px;z-index:6;display:flex;flex-direction:column;padding:20px 22px 12px;max-width:1100px;margin:0 auto;font-size:13px}
 .tasks-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
-.tasks-head h2{font-size:18px;font-weight:500;margin:0}.tasks-head .note{margin-top:4px}
-.tasks-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tasks-tools input[type=text]{width:220px;margin:0}.tasks-tools .check{margin:0}
-.segmented{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}.segmented button{border:0;border-radius:0;padding:7px 11px;background:transparent;color:var(--muted)}
+.tasks-head h2{font-size:20px;font-weight:500;letter-spacing:-.3px;margin:0}.tasks-head .note{margin-top:4px;font-size:12px}
+.tasks-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tasks-tools input[type=text]{width:240px;margin:0}.tasks-tools .check{margin:0;font-size:12px}
+.segmented{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}.segmented button{border:0;border-radius:0;padding:7px 12px;background:transparent;color:var(--muted)}
 .segmented button[aria-pressed=true]{background:var(--raised);color:var(--text)}
-.tasks-hint{margin:8px 0 10px}
-.tasks-body{flex:1;overflow:auto;padding-right:4px}
-.tasks-source h3{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#97a4c5;margin:16px 0 6px;font-weight:600}
-.tasks-group{border-top:1px solid #35456380}
-.group-head{display:flex;align-items:center;gap:8px;padding:6px 0}.group-head strong{flex:1;font-weight:600;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tasks-hint{margin:10px 0 6px;font-size:12px}
+.tasks-body{flex:1;overflow:auto;padding-right:6px}
+/* Trailing tracks are shared by the source heading and every row so the columns align. */
+.tasks-view{--cols:72px 84px 104px 112px}
+.source-head{display:grid;grid-template-columns:minmax(0,1fr) var(--cols);align-items:end;gap:8px;position:sticky;top:0;z-index:1;background:#101829;padding:16px 0 8px;margin-top:4px}
+.source-name{display:flex;align-items:baseline;gap:10px;min-width:0}
+.source-head h3{font-size:15px;font-weight:600;margin:0}
+.tasks-group{margin-top:2px}
+.tasks-group+.tasks-group{margin-top:10px}
+.group-head{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 0;border-radius:8px;background:#1e2a4359}
+.group-head strong{font-weight:600;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-head .tree-meta{flex:1}
 .tasks-view ul{list-style:none;margin:0;padding:0}
-.tree-row{display:flex;align-items:center;gap:8px;padding:2px 0 2px calc(var(--depth) * 22px);border-radius:6px}
-.tree-row:hover{background:#1e2a4366}
-.caret{border:0;background:transparent;color:var(--muted);width:22px;height:24px;padding:0;flex-shrink:0}
+.tree-row{display:grid;grid-template-columns:calc(26px + var(--depth) * 22px) minmax(0,1fr) var(--cols);align-items:center;gap:8px;min-height:36px;border-radius:8px}
+.tree-row:hover,.tree-row:focus-within{background:#1e2a4366}
+.caret{border:0;background:transparent;color:var(--muted);width:26px;height:28px;padding:0;justify-self:end}
 .caret::before{content:'';display:inline-block;width:5px;height:5px;border-right:1.5px solid;border-bottom:1.5px solid;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
 .caret[aria-expanded=false]::before{transform:rotate(-45deg)}.caret[hidden]{display:inline-block!important;visibility:hidden}
-.tree-title{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:transparent;padding:6px 4px;text-align:left}
-.tree-title:hover:not(:disabled){background:transparent}.tree-title:hover:not(:disabled) span{text-decoration:underline}
+.tree-title{min-width:0;display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:7px 4px;text-align:left;font-size:13px}
+.tree-title:hover:not(:disabled){background:transparent}.tree-title:hover:not(:disabled) span{text-decoration:underline;text-underline-offset:3px}
 .tree-title:disabled{opacity:1;cursor:default}
 .tree-title span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tree-meta{color:var(--muted);font-size:10px;flex-shrink:0}
-.tree-row[data-hidden=true] :is(.tree-title,.tree-meta,.pill){opacity:.42}.tree-row[data-hidden=true] .tree-title span{text-decoration:line-through}
-.eye{flex-shrink:0;min-width:62px}
-.hidden-note{font-size:11px;margin:0 0 6px 10px}
+.tree-meta{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tree-row .pill{justify-self:start}
+.tree-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.tree-row[data-hidden=true] :is(.tree-title,.tree-meta,.pill){opacity:.45}.tree-row[data-hidden=true] .tree-title span{text-decoration:line-through}
+/* Bulk actions stay out of the way until the row or list is in use. */
+.bulk{font-size:12px;opacity:0;transition:opacity .12s}
+:is(.tree-row,.group-head):is(:hover,:focus-within) .bulk{opacity:1}
+.eye{display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;background:transparent;color:var(--muted);opacity:.55;flex-shrink:0}
+.eye svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+.tree-row:is(:hover,:focus-within) .eye,.eye:focus-visible{opacity:1}
+.eye[aria-pressed=true]{opacity:1;color:var(--warning)}
+.card-more{font-size:12px;margin:6px 0 2px 10px}

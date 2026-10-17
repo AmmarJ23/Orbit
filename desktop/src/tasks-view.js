@@ -1,8 +1,9 @@
 // Tasks tab: every task grouped by source, then list/project, nested by parent the way
 // ClickUp organises subtasks. Hiding is private to Orbit: hidden tasks leave the scene
 // and the side cards but stay here, dimmed, until revealed.
+import { statePill, eyeButton } from './task-labels.js';
+
 const $ = id => document.getElementById(id);
-const stateLabel = state => ({ 'not-started': 'To do', 'in-progress': 'Doing', completed: 'Done' })[state] ?? state;
 
 export function createTasksView({ controller, focusTask }) {
   const view = $('tasks-view');
@@ -28,13 +29,12 @@ export function createTasksView({ controller, focusTask }) {
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && open && !document.querySelector('dialog[open]')) setOpen(false); });
   $('tasks-search').oninput = event => { query = event.target.value.trim().toLowerCase(); draw(); };
   $('tasks-show-hidden').onchange = event => { showHidden = event.target.checked; draw(); };
-  for (const button of document.querySelectorAll('#tasks-filter [data-filter]')) {
-    button.onclick = () => {
-      filter = button.dataset.filter;
-      for (const other of document.querySelectorAll('#tasks-filter [data-filter]')) other.setAttribute('aria-pressed', String(other === button));
-      draw();
-    };
+  function setFilter(value) {
+    filter = value;
+    for (const button of document.querySelectorAll('#tasks-filter [data-filter]')) button.setAttribute('aria-pressed', String(button.dataset.filter === value));
+    draw();
   }
+  for (const button of document.querySelectorAll('#tasks-filter [data-filter]')) button.onclick = () => setFilter(button.dataset.filter);
 
   // Subtasks whose parent is not assigned to you have nothing to nest under; they sit at the top.
   function tree(list) {
@@ -53,12 +53,14 @@ export function createTasksView({ controller, focusTask }) {
   const branchIds = (task, children) => [task.id, ...(children.get(task.id) ?? []).flatMap(child => branchIds(child, children))];
   const matches = task => !query || task.title.toLowerCase().includes(query) || task.externalId.toLowerCase().includes(query);
 
-  function eye(ids, hidden, label, text = null) {
-    const button = Object.assign(document.createElement('button'), { type: 'button', className: 'quiet eye', textContent: text ?? (hidden ? 'Show' : 'Hide') });
-    button.setAttribute('aria-label', (hidden ? 'Show ' : 'Hide ') + label);
+  // Bulk actions (a branch, a list) are text buttons that appear on hover or focus.
+  function bulk(ids, hidden, text, label) {
+    const button = Object.assign(document.createElement('button'), { type: 'button', className: 'quiet bulk', textContent: text });
+    button.setAttribute('aria-label', label);
     button.onclick = () => controller().setHidden(ids, !hidden);
     return button;
   }
+  const cell = (className, text = '') => Object.assign(document.createElement('span'), { className, textContent: text });
   // `children` is the full nesting (used for counts and branch hiding); `shown` is what
   // survives the search and hidden filters.
   function taskRow(task, children, shown, depth) {
@@ -80,16 +82,17 @@ export function createTasksView({ controller, focusTask }) {
     title.title = task.hidden ? 'Hidden from the scene' : 'Show in orbit';
     title.disabled = task.hidden;
     title.onclick = () => { setOpen(false); focusTask(task.id); };
-    const meta = Object.assign(document.createElement('span'), { className: 'tree-meta', textContent: [kids.length ? `${kids.length} subtask${kids.length === 1 ? '' : 's'}` : '', task.priority ?? ''].filter(Boolean).join(' · ') });
-    const pill = Object.assign(document.createElement('span'), { className: 'pill', textContent: stateLabel(task.state) });
-    row.append(caret, title, meta, pill);
+    const actions = cell('tree-actions');
     // A parent offers its whole branch as well as itself, matching ClickUp's nesting.
     if (kids.length) {
       const ids = branchIds(task, children);
       const allHidden = ids.every(id => byId.get(id)?.hidden);
-      row.append(eye(ids, allHidden, task.title + ' and its subtasks', allHidden ? 'Show all' : 'Hide all'));
+      actions.append(bulk(ids, allHidden, allHidden ? 'Show all' : 'Hide all', `${allHidden ? 'Show' : 'Hide'} ${task.title} and its subtasks`));
     }
-    row.append(eye([task.id], task.hidden, task.title, kids.length ? (task.hidden ? 'Show task' : 'Hide task') : null));
+    actions.append(eyeButton(task.hidden, task.title, () => controller().setHidden([task.id], !task.hidden)));
+    row.append(caret, title, cell('tree-meta', kids.length ? String(kids.length) : ''), cell('tree-meta', task.priority ?? ''),
+      // A column always needs a cell; the default state reads as quiet text instead of a pill.
+      task.state === 'not-started' ? cell('tree-meta', 'Not started') : statePill(task.state), actions);
     li.append(row);
     if (visibleKids.length && !collapsed.has(task.id)) {
       const ul = document.createElement('ul');
@@ -122,7 +125,13 @@ export function createTasksView({ controller, focusTask }) {
       const section = document.createElement('section');
       section.className = 'tasks-source';
       const hiddenCount = own.filter(task => task.hidden).length;
-      section.append(Object.assign(document.createElement('h3'), { textContent: `${source} · ${own.length} task${own.length === 1 ? '' : 's'}${hiddenCount ? ` · ${hiddenCount} hidden` : ''}` }));
+      const heading = Object.assign(document.createElement('div'), { className: 'source-head' });
+      const name = Object.assign(document.createElement('div'), { className: 'source-name' });
+      name.append(Object.assign(document.createElement('h3'), { textContent: source }),
+        cell('tree-meta', `${own.length} task${own.length === 1 ? '' : 's'}${hiddenCount ? ` · ${hiddenCount} hidden` : ''}`));
+      // Column titles line up with the row cells below (same trailing grid tracks).
+      heading.append(name, cell('tree-meta', 'Subtasks'), cell('tree-meta', 'Priority'), cell('tree-meta', 'Status'), cell('tree-meta', 'In scene'));
+      section.append(heading);
       for (const [name, list] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
         const { roots, children } = tree(list);
         const shown = new Map();
@@ -136,9 +145,10 @@ export function createTasksView({ controller, focusTask }) {
         caret.setAttribute('aria-label', (collapsed.has(key) ? 'Expand ' : 'Collapse ') + name);
         caret.onclick = () => { collapsed.has(key) ? collapsed.delete(key) : collapsed.add(key); draw(); };
         const allHidden = list.every(task => task.hidden);
+        const listHidden = list.filter(task => task.hidden).length;
         head.append(caret, Object.assign(document.createElement('strong'), { textContent: name }),
-          Object.assign(document.createElement('span'), { className: 'tree-meta', textContent: `${list.length}` }),
-          eye(list.map(task => task.id), allHidden, 'every task in ' + name, allHidden ? 'Show list' : 'Hide list'));
+          cell('tree-meta', `${list.length} task${list.length === 1 ? '' : 's'}${listHidden ? ` · ${listHidden} hidden` : ''}`),
+          bulk(list.map(task => task.id), allHidden, allHidden ? 'Show list' : 'Hide list', `${allHidden ? 'Show' : 'Hide'} every task in ${name}`));
         group.append(head);
         if (!collapsed.has(key)) {
           const ul = Object.assign(document.createElement('ul'), { className: 'tree' });
@@ -162,6 +172,6 @@ export function createTasksView({ controller, focusTask }) {
   }
   return {
     render(snapshot) { tasks = snapshot.tasks; byId = new Map(tasks.map(task => [task.id, task])); draw(); },
-    open: () => setOpen(true),
+    open(source = 'all') { setFilter(source); setOpen(true); },
   };
 }

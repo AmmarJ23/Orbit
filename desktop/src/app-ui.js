@@ -1,5 +1,9 @@
+import { stateLabel, statePill } from './task-labels.js';
+
 const $ = id => document.getElementById(id);
-const stateLabel = state => ({ 'not-started': 'Not started', 'in-progress': 'In progress', completed: 'Done' })[state];
+// Side cards are a summary; the Tasks tab holds the full list.
+const CARD_ROWS = 8;
+const stateOrder = { 'in-progress': 0, 'not-started': 1, completed: 2 };
 const narrow = () => matchMedia('(max-width: 1279px)').matches;
 
 export function setupSettingsTabs() {
@@ -194,7 +198,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     if (action === 'open') controller().openSource(task.id);
     if (action === 'hide') controller().setHidden([task.id], true);
   };
-  for (const button of document.querySelectorAll('[data-manage]')) button.onclick = () => openTasks();
+  for (const button of document.querySelectorAll('[data-manage]')) button.onclick = () => openTasks(button.dataset.manage);
   document.addEventListener('pointerdown', event => { if (!menu.hidden && !event.target.closest('#task-menu, .more')) closeMenu(); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) closeMenu(); });
 
@@ -206,7 +210,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
       select.type = 'button'; select.className = 'task-row';
       select.append(Object.assign(document.createElement('i'), { className: 'dot' }), document.createElement('span'));
       select.onclick = () => selectTask(task.id);
-      const pill = Object.assign(document.createElement('span'), { className: 'pill' });
+      const pill = statePill(task.state);
       const more = Object.assign(document.createElement('button'), { type: 'button', className: 'more', textContent: '⋯' });
       more.setAttribute('aria-haspopup', 'menu');
       more.onclick = () => openMenu(item.task, more);
@@ -217,7 +221,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     const title = task.id.startsWith('demo:') || task.source === 'ClickUp' ? (task.parentId ? '↳ ' : '') + task.title : '#' + task.externalId + ' ' + task.title;
     item.querySelector('.task-row span').textContent = title;
     item.querySelector('.task-row').title = title + (task.project ? ' · ' + task.project : '') + (!task.upstreamPresent ? ' · No longer in open assignments' : '');
-    item.querySelector('.pill').textContent = stateLabel(task.state);
+    item.querySelector('.pill').textContent = task.state === 'not-started' ? '' : stateLabel(task.state);
     item.querySelector('.more').setAttribute('aria-label', 'Actions for ' + task.title);
     item.dataset.state = task.state;
     item.dataset.selected = String(selectedId() === task.id);
@@ -229,9 +233,15 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     // Hidden tasks are managed in the Tasks tab; the card only says how many there are.
     const own = all.filter(task => !task.hidden);
     const hiddenCount = all.length - own.length;
-    $(ids.hidden).hidden = !hiddenCount;
-    $(ids.hidden).textContent = `${hiddenCount} hidden · Manage in Tasks`;
-    $(ids.list).replaceChildren(...own.map(row));
+    // In-progress work first; the selected task always stays in view.
+    const ordered = own.slice().sort((a, b) => stateOrder[a.state] - stateOrder[b.state]);
+    const shown = ordered.slice(0, CARD_ROWS);
+    const chosen = ordered.find(task => task.id === selectedId());
+    if (chosen && !shown.includes(chosen)) shown.push(chosen);
+    const rest = own.length - shown.length;
+    $(ids.hidden).hidden = !rest && !hiddenCount;
+    $(ids.hidden).textContent = [rest ? `${rest} more` : '', hiddenCount ? `${hiddenCount} hidden` : ''].filter(Boolean).join(' · ') + ' · Open in Tasks';
+    $(ids.list).replaceChildren(...shown.map(row));
     $(ids.count).textContent = own.filter(task => task.state !== 'completed').length || '';
     $(ids.empty).hidden = all.length > 0;
     if (!live) { $(ids.empty).textContent = `No ${source} sample tasks.`; return; }
