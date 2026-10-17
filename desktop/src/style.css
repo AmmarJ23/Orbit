@@ -32,6 +32,9 @@ header>*{pointer-events:auto}
 .brand img{display:block;width:120px;height:auto;margin:-8px 0 -8px -3px}
 .nav-tabs{display:flex;gap:4px}.nav-tabs button{border:0;background:transparent;color:var(--muted);padding:8px 12px;border-radius:0;border-bottom:2px solid transparent}
 .nav-tabs button[aria-current=page]{color:var(--text);border-bottom-color:var(--primary)}.nav-tabs button:disabled{opacity:.55}
+.nav-tabs button{transition:color .15s,border-color .15s}.nav-tabs button:hover:not(:disabled){background:transparent;color:var(--text);border-bottom-color:#79bfff55}
+.nav-tabs button[aria-current=page]:hover{border-bottom-color:var(--primary)}.nav-tabs button:focus-visible{outline-offset:-2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){.nav-tabs button{transition:none}}
 #new-task{justify-self:end}
 
 /* Heading */
