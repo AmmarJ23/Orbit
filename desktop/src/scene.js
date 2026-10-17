@@ -95,9 +95,11 @@ glow(4.2, 0x79bfff, 0.05, 0.28); glow(4.2, 0x79bfff, 0.2, 0.06);
 ring(7.1, 0x9de5f5, 0.8);
 glow(7.1, 0x79bfff, 0.05, 0.22); glow(7.1, 0x79bfff, 0.22, 0.05);
 ring(9.5, 0x64789b, 0.22, true);
-const core = rock(1.45, 0x1e3554, 2);
-core.rotation.z = 0.22;
+// Event horizon: unlit pure black, so it reads as a hole in the scene rather than a body.
+// It writes depth, hiding the far disc, the glow sprite and stars behind it.
+const core = new THREE.Mesh(new THREE.SphereGeometry(1.45, 64, 32), new THREE.MeshBasicMaterial({ color: 0x000000 }));
 scene.add(core);
+for (let i = 0; i < 180; i++) random(); // The old rock core drew one shade per face; keep the seeded scene unchanged.
 function canvasTexture(size, draw) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -106,12 +108,13 @@ function canvasTexture(size, draw) {
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
-// Accretion disc: seeded streaks on a radial falloff, spun slowly around the core.
+// Accretion disc: seeded streaks on a radial falloff, spun slowly around the core. A bright
+// rim at the inner edge keeps the near side crossing the horizon a thin band, not a lit cap.
 const accretion = new THREE.Mesh(new THREE.RingGeometry(1.55, 3.3, 128, 1), new THREE.MeshBasicMaterial({
   map: canvasTexture(512, (g, s) => {
     const c = s / 2;
     const fade = g.createRadialGradient(c, c, s * 0.23, c, c, s / 2);
-    fade.addColorStop(0, 'rgba(162,211,255,0.75)'); fade.addColorStop(0.35, 'rgba(121,191,255,0.32)'); fade.addColorStop(1, 'rgba(121,191,255,0)');
+    fade.addColorStop(0, 'rgba(191,228,255,0)'); fade.addColorStop(0.04, 'rgba(191,228,255,0.8)'); fade.addColorStop(0.12, 'rgba(121,191,255,0.22)'); fade.addColorStop(0.45, 'rgba(72,152,217,0.12)'); fade.addColorStop(1, 'rgba(121,191,255,0)');
     g.fillStyle = fade; g.fillRect(0, 0, s, s);
     g.lineCap = 'round';
     for (let i = 0; i < 70; i++) {
@@ -132,9 +135,57 @@ const radialSprite = (inner, outer) => canvasTexture(128, (g, s) => {
   gradient.addColorStop(0, inner); gradient.addColorStop(1, outer);
   g.fillStyle = gradient; g.fillRect(0, 0, s, s);
 });
-const coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialSprite('rgba(121,191,255,0.45)', 'rgba(121,191,255,0)'), depthWrite: false, blending: THREE.AdditiveBlending }));
+const coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialSprite('rgba(121,191,255,0.3)', 'rgba(121,191,255,0)'), depthWrite: false, blending: THREE.AdditiveBlending }));
 coreGlow.scale.setScalar(6.5);
 scene.add(coreGlow);
+// Lensing: a camera-facing quad draws the photon ring hugging the horizon and the image of
+// the disc's far side bent up over the top (with a faint secondary image underneath). The
+// arcs fade to an even halo as the view turns face-on to the disc. One cheap shader, no bloom.
+const lens = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.ShaderMaterial({
+  uniforms: { time: { value: 0 }, edgeOn: { value: 1 }, energy: { value: 0 } },
+  vertexShader: `
+    varying vec2 vP;
+    void main() { vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform float time; uniform float edgeOn; uniform float energy;
+    varying vec2 vP;
+    float band(float r, float a, float b, float soft) { return smoothstep(a - soft, a, r) * (1.0 - smoothstep(b, b + soft, r)); }
+    void main() {
+      float r = length(vP);
+      float a = atan(vP.y, vP.x);
+      float up = vP.y / max(r, 1e-4);
+      // Thin photon ring right at the horizon edge.
+      float photon = exp(-pow((r - 1.485) / 0.02, 2.0)) + 0.18 * exp(-pow((r - 1.52) / 0.06, 2.0));
+      // Far side of the disc, lensed into an arc over the top; the secondary image is a sliver below.
+      float over = mix(0.55, 1.0, edgeOn) * smoothstep(-0.25, 0.75, up);
+      float under = 0.35 * edgeOn * smoothstep(0.2, -0.8, up);
+      float shape = mix(0.45, 1.0, edgeOn);
+      float arc = band(r, 1.6, 1.6 + 0.7 * shape * (0.4 + 0.6 * max(up, 0.0)), 0.2) * pow(1.0 - smoothstep(1.6, 2.6, r), 1.6);
+      float lower = band(r, 1.56, 1.66, 0.05);
+      float streaks = 0.72 + 0.28 * sin(a * 9.0 - time * 0.9 + r * 14.0) * sin(a * 4.0 + time * 0.5);
+      // Doppler beaming: the side swinging towards the camera burns brighter.
+      float beam = 1.0 + 0.35 * edgeOn * (-vP.x / max(r, 1e-4));
+      vec3 hot = vec3(0.86, 0.95, 1.0);
+      vec3 cool = vec3(0.47, 0.75, 1.0);
+      float boost = 1.0 + 0.6 * energy;
+      vec3 color = hot * photon * 1.3 * boost
+        + mix(cool, hot, 1.0 - smoothstep(1.56, 2.3, r)) * (arc * over + lower * under) * streaks * beam * 0.38 * boost;
+      gl_FragColor = vec4(color, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+scene.add(lens);
+const discNormal = new THREE.Vector3();
+const toCamera = new THREE.Vector3();
+function updateLens() {
+  lens.quaternion.copy(camera.quaternion);
+  discNormal.set(0, 0, 1).applyQuaternion(accretion.quaternion);
+  toCamera.copy(camera.position).normalize();
+  lens.material.uniforms.edgeOn.value = 1 - Math.abs(discNormal.dot(toCamera));
+  lens.material.uniforms.time.value = simulationTime;
+}
 const planets = [];
 const arrivals = new Map();
 const tagLayer = document.createElement('div');
@@ -366,7 +417,7 @@ let simulationTime = 0;
 let selected = null;
 let speed = 1;
 let frameLimit = 60;
-const completionSystem = createCompletionSystem({ scene, rock, random, core: { glow: coreGlow, light: coreLight, disc: accretion }, onChange: planet => {
+const completionSystem = createCompletionSystem({ scene, rock, random, core: { glow: coreGlow, light: coreLight, disc: accretion, lens }, onChange: planet => {
   if (planet === selected) refreshSelection();
 } });
 function findOpenPhase(orbit) {
@@ -669,7 +720,6 @@ addEventListener('resize',resize);
 resize();
 function updateScene(delta) {
   if (!paused) simulationTime += delta*speed;
-  core.rotation.y = simulationTime*0.035;
   accretion.rotation.z = -simulationTime*0.06;
   stationBody.rotation.y = simulationTime*0.25;
   foreground.rotation.z = Math.sin(simulationTime*0.05)*0.01;
@@ -723,6 +773,7 @@ function animate(now) {
   updateFormations(delta);
   completionSystem.update(delta, paused, speed);
   controls.update();
+  updateLens();
   updateArrivalTags();
   updateLabels();
   updateOverlays(now);

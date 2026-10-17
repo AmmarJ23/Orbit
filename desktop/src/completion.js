@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // A second scene renders only while the shared completion glimpse is open.
-// The centre is a black hole: `core` holds its glow sprite, point light and accretion disc,
+// The centre is a black hole: `core` holds its glow sprite, point light, accretion disc and lensing quad,
 // which swell while it feeds and flare when the last of a planet crosses the horizon.
 export function createCompletionSystem({ scene, rock, random, onChange, core }) {
   const panel = document.getElementById('completed-preview');
@@ -86,6 +86,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
     core.glow.material.color.setScalar(1 + energy);
     core.light.intensity = base.light * (1 + 1.4 * energy);
     core.disc.material.color.setScalar(1 + 0.6 * energy);
+    core.lens.material.uniforms.energy.value = energy;
     photonRing.visible = flareAge < 1.6;
     if (photonRing.visible) {
       const t = flareAge / 1.6;
