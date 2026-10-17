@@ -53,7 +53,7 @@ header>*{pointer-events:auto}
 .card-head:hover:not(:disabled){background:transparent}
 .card-title{font-size:14px;font-weight:600;flex:1;text-align:left}.card-count{color:var(--muted);font-size:12px}
 .source-icon{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;font-size:11px;font-weight:700;flex-shrink:0}
-.source-icon.redmine{background:#ff91a422;color:var(--danger)}.source-icon.clickup{background:#9de5f522;color:var(--cyan)}.source-icon.notes{background:#79bfff22;color:var(--primary)}
+.source-icon.redmine,.source-icon.clickup{background:#f2f6ffeb}.source-icon img{width:66%;height:66%;display:block}.source-icon.notes{background:#79bfff22;color:var(--primary)}
 .card-body{padding:0 8px}
 .card-status{display:flex;align-items:center;justify-content:space-between;gap:8px}
 #connection-status,#sync-status,.task-empty,#connection-feedback,#clickup-connection-status,#clickup-sync-status,#clickup-feedback{font-size:12px;line-height:1.6;color:var(--muted);margin:2px 0 6px;overflow-wrap:anywhere}

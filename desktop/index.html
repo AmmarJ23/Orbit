@@ -18,7 +18,7 @@
 
 <div class="sources" aria-label="Task sources">
   <section class="source-card glass" data-source="redmine">
-    <button type="button" class="card-head" aria-expanded="false" aria-controls="redmine-body"><span class="source-icon redmine" aria-hidden="true">R</span><span class="card-title">Redmine</span><span class="card-count" id="redmine-count"></span></button>
+    <button type="button" class="card-head" aria-expanded="false" aria-controls="redmine-body"><span class="source-icon redmine" aria-hidden="true"><img src="/src/assets/redmine.svg" alt=""></span><span class="card-title">Redmine</span><span class="card-count" id="redmine-count"></span></button>
     <div class="card-body" id="redmine-body">
       <!-- live:start -->
       <div class="card-status"><p id="connection-status" role="status">Loading saved tasks…</p><button type="button" id="refresh-tasks" class="quiet" hidden>Refresh</button></div>
@@ -33,7 +33,7 @@
     </div>
   </section>
   <section class="source-card glass" data-source="clickup">
-    <button type="button" class="card-head" aria-expanded="false" aria-controls="clickup-body"><span class="source-icon clickup" aria-hidden="true">C</span><span class="card-title">ClickUp</span><span class="card-count" id="clickup-count"></span></button>
+    <button type="button" class="card-head" aria-expanded="false" aria-controls="clickup-body"><span class="source-icon clickup" aria-hidden="true"><img src="/src/assets/clickup.svg" alt=""></span><span class="card-title">ClickUp</span><span class="card-count" id="clickup-count"></span></button>
     <div class="card-body" id="clickup-body">
       <!-- live:start -->
       <div class="card-status"><p id="clickup-connection-status" role="status"></p><button type="button" id="clickup-refresh" class="quiet" hidden>Refresh</button></div>
@@ -163,7 +163,7 @@
     <div><h2 id="tasks-title">Tasks</h2><p id="tasks-summary" class="note" role="status"></p></div>
     <div class="tasks-tools">
       <input id="tasks-search" type="text" placeholder="Search tasks" aria-label="Search tasks" spellcheck="false" autocomplete="off">
-      <div id="tasks-filter" class="segmented" role="group" aria-label="Source"><button type="button" data-filter="all" aria-pressed="true">All</button><button type="button" data-filter="Redmine" aria-pressed="false"><span class="source-icon redmine" aria-hidden="true">R</span>Redmine</button><button type="button" data-filter="ClickUp" aria-pressed="false"><span class="source-icon clickup" aria-hidden="true">C</span>ClickUp</button></div>
+      <div id="tasks-filter" class="segmented" role="group" aria-label="Source"><button type="button" data-filter="all" aria-pressed="true">All</button><button type="button" data-filter="Redmine" aria-pressed="false"><span class="source-icon redmine" aria-hidden="true"><img src="/src/assets/redmine.svg" alt=""></span>Redmine</button><button type="button" data-filter="ClickUp" aria-pressed="false"><span class="source-icon clickup" aria-hidden="true"><img src="/src/assets/clickup.svg" alt=""></span>ClickUp</button></div>
       <label class="check"><input id="tasks-show-hidden" type="checkbox" checked> Show hidden</label>
     </div>
   </div>
