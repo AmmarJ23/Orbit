@@ -26,8 +26,10 @@ input[type=range]{width:100%;margin:10px 0 16px;accent-color:var(--primary)}
 /* Header */
 header{position:fixed;top:20px;left:var(--edge);right:var(--edge);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;pointer-events:none;z-index:5}
 header>*{pointer-events:auto}
-.brand{display:flex;align-items:center;gap:10px;font-size:21px;font-weight:600;letter-spacing:-.6px}
-.mark{width:26px;height:26px;fill:none;stroke:var(--primary);stroke-width:2}
+.brand{display:flex;align-items:center}
+/* Horizontal lockup at its 120px minimum width; below that the guidelines want the small-size cut.
+   Negative margins trim the canvas's empty padding so the header sizes to the ink and the ring lines up with the intro text. */
+.brand img{display:block;width:120px;height:auto;margin:-8px 0 -8px -3px}
 .nav-tabs{display:flex;gap:4px}.nav-tabs button{border:0;background:transparent;color:var(--muted);padding:8px 12px;border-radius:0;border-bottom:2px solid transparent}
 .nav-tabs button[aria-current=page]{color:var(--text);border-bottom-color:var(--primary)}.nav-tabs button:disabled{opacity:.55}
 #new-task{justify-self:end}
