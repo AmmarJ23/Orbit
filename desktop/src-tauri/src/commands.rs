@@ -1,5 +1,6 @@
 use crate::{
-    model::{OrbitState, Preferences, Snapshot},
+    http::Workspace,
+    model::{OrbitState, Preferences, Snapshot, Source},
     service::Service,
 };
 use std::sync::Arc;
@@ -36,23 +37,49 @@ pub async fn save_preferences(
     let s = service(&state)?;
     blocking(move || s.save_preferences(preferences)).await
 }
+// `base_url` is the Redmine server; ClickUp ignores it and uses `workspace_id` instead.
 #[tauri::command]
-pub async fn connect_redmine(
-    base_url: String,
+pub async fn connect_source(
+    source: Source,
+    base_url: Option<String>,
     api_key: String,
+    workspace_id: Option<String>,
     state: tauri::State<'_, LiveState>,
 ) -> Result<Snapshot, String> {
     let s = service(&state)?;
-    blocking(move || s.connect(&base_url, &api_key)).await
+    blocking(move || {
+        s.connect(
+            source,
+            base_url.as_deref().unwrap_or(""),
+            &api_key,
+            workspace_id.as_deref(),
+        )
+    })
+    .await
 }
 #[tauri::command]
-pub async fn refresh_redmine(state: tauri::State<'_, LiveState>) -> Result<(), String> {
-    service(&state)?.refresh()
-}
-#[tauri::command]
-pub async fn disconnect_redmine(state: tauri::State<'_, LiveState>) -> Result<Snapshot, String> {
+pub async fn list_workspaces(
+    source: Source,
+    api_key: String,
+    state: tauri::State<'_, LiveState>,
+) -> Result<Vec<Workspace>, String> {
     let s = service(&state)?;
-    blocking(move || s.disconnect()).await
+    blocking(move || s.workspaces(source, &api_key)).await
+}
+#[tauri::command]
+pub async fn refresh_source(
+    source: Source,
+    state: tauri::State<'_, LiveState>,
+) -> Result<(), String> {
+    service(&state)?.refresh(source)
+}
+#[tauri::command]
+pub async fn disconnect_source(
+    source: Source,
+    state: tauri::State<'_, LiveState>,
+) -> Result<Snapshot, String> {
+    let s = service(&state)?;
+    blocking(move || s.disconnect(source)).await
 }
 #[tauri::command]
 pub async fn open_source_task(
@@ -66,9 +93,9 @@ pub async fn open_source_task(
         let status = std::process::Command::new("/usr/bin/open")
             .arg(url)
             .status()
-            .map_err(|_| "Could not open the source ticket.".to_string())?;
+            .map_err(|_| "Could not open the source task.".to_string())?;
         if !status.success() {
-            return Err("Could not open the source ticket.".into());
+            return Err("Could not open the source task.".into());
         }
         Ok(())
     })

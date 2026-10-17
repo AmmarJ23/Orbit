@@ -75,7 +75,6 @@ function fadeOverflow(scroller) {
 
 export function createAppUI({ controller, selectTask, selectedId, switchSystem }) {
   const rows = new Map();
-  let connectionBusy = false;
   let lastSnapshot;
   let configuredServer;
   let menuTask = null;
@@ -103,31 +102,71 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
     $('completed-count').textContent = `${done.length} ${done.length === 1 ? 'task' : 'tasks'}`;
     for (const item of document.querySelectorAll('.legend [data-system]')) item.hidden = item.dataset.system !== shownSystem;
   }
-  const dialog = $('connect-dialog');
-  const openConnect = () => { if (!dialog.open) dialog.showModal(); $('redmine-key').focus(); };
-  if (dialog) {
-    $('open-connect').onclick = openConnect;
-    $('edit-connection').onclick = openConnect;
-    $('cancel-connect').onclick = () => dialog.close();
-    $('toggle-key').onclick = () => {
-      const show = $('redmine-key').type === 'password';
-      $('redmine-key').type = show ? 'text' : 'password';
-      $('toggle-key').textContent = show ? 'Hide' : 'Show';
-      $('toggle-key').setAttribute('aria-pressed', String(show));
+  // Element ids per source; Redmine keeps the ids it had before ClickUp existed.
+  const sources = {
+    Redmine: {
+      dialog: 'connect-dialog', form: 'connection-form', key: 'redmine-key', toggle: 'toggle-key', cancel: 'cancel-connect', submit: 'connect-redmine',
+      open: 'open-connect', edit: 'edit-connection', disconnect: 'disconnect-redmine', refresh: 'refresh-tasks', status: 'connection-status',
+      sync: 'sync-status', summary: 'connection-summary', feedback: 'connection-feedback', empty: 'task-empty', list: 'task-list', count: 'redmine-count',
+      reads: 'open assigned Redmine tickets', nothing: 'No open assigned tickets.',
+    },
+    ClickUp: {
+      dialog: 'clickup-dialog', form: 'clickup-form', key: 'clickup-key', toggle: 'clickup-toggle-key', cancel: 'clickup-cancel', submit: 'clickup-connect',
+      open: 'clickup-open-connect', edit: 'clickup-edit-connection', disconnect: 'clickup-disconnect', refresh: 'clickup-refresh', status: 'clickup-connection-status',
+      sync: 'clickup-sync-status', summary: 'clickup-summary', feedback: 'clickup-feedback', empty: 'clickup-empty', list: 'clickup-list', count: 'clickup-count',
+      reads: 'open assigned ClickUp tasks', nothing: 'No open assigned tasks.',
+    },
+  };
+  const live = !!$('connect-dialog');
+  const busySources = new Set();
+  // ClickUp setup is two steps when the token sees several workspaces: list, then choose.
+  async function connectDetails(source) {
+    const ids = sources[source];
+    const apiKey = $(ids.key).value;
+    if (source === 'Redmine') return { baseUrl: $('redmine-url').value, apiKey };
+    const field = $('clickup-workspace-field');
+    if (!field.hidden) return { apiKey, workspaceId: $('clickup-workspace').value };
+    const workspaces = await controller().listWorkspaces(source, apiKey);
+    if (!workspaces) return null;
+    if (workspaces.length <= 1) return { apiKey, workspaceId: workspaces[0]?.id ?? null };
+    $('clickup-workspace').replaceChildren(...workspaces.map(w => new Option(w.name, w.id)));
+    field.hidden = false;
+    $(ids.submit).textContent = 'Connect workspace';
+    $('clickup-workspace').focus();
+    return null;
+  }
+  for (const [source, ids] of live ? Object.entries(sources) : []) {
+    const dialog = $(ids.dialog);
+    const openConnect = () => { if (!dialog.open) dialog.showModal(); $(ids.key).focus(); };
+    $(ids.open).onclick = openConnect;
+    $(ids.edit).onclick = openConnect;
+    $(ids.cancel).onclick = () => dialog.close();
+    $(ids.toggle).onclick = () => {
+      const show = $(ids.key).type === 'password';
+      $(ids.key).type = show ? 'text' : 'password';
+      $(ids.toggle).textContent = show ? 'Hide' : 'Show';
+      $(ids.toggle).setAttribute('aria-pressed', String(show));
     };
-    dialog.addEventListener('close', () => { $('redmine-key').value = ''; $('redmine-key').type = 'password'; $('toggle-key').textContent = 'Show'; });
-    $('connection-form').onsubmit = async event => {
+    dialog.addEventListener('close', () => {
+      $(ids.key).value = ''; $(ids.key).type = 'password'; $(ids.toggle).textContent = 'Show';
+      if (source === 'ClickUp') { $('clickup-workspace-field').hidden = true; $('clickup-workspace').replaceChildren(); }
+      if (lastSnapshot) render(lastSnapshot);
+    });
+    $(ids.form).onsubmit = async event => {
       event.preventDefault();
-      const request = controller().connect($('redmine-url').value, $('redmine-key').value);
-      $('redmine-key').value = '';
+      const details = await connectDetails(source);
+      if (!details) return;
+      const request = controller().connect(source, details);
+      $(ids.key).value = '';
       const success = await request;
       if (success) dialog.close();
-      $('connection-feedback').textContent = success ? 'Connected. Your tasks are saved locally.' : 'Connection was not changed. Check the message below.';
+      else if (source === 'ClickUp') { $('clickup-workspace-field').hidden = true; $('clickup-workspace').replaceChildren(); }
+      $(ids.feedback).textContent = success ? 'Connected. Your tasks are saved locally.' : 'Connection was not changed. Check the message below.';
     };
-    $('disconnect-redmine').onclick = async () => {
-      if (await controller().disconnect()) $('connection-feedback').textContent = 'Disconnected. Cached tasks were kept.';
+    $(ids.disconnect).onclick = async () => {
+      if (await controller().disconnect(source)) $(ids.feedback).textContent = 'Disconnected. Cached tasks were kept.';
     };
-    $('refresh-tasks').onclick = () => controller().refresh();
+    $(ids.refresh).onclick = () => controller().refresh(source);
   }
   $('error').onclick = () => { $('error').hidden = true; };
 
@@ -173,7 +212,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
       rows.set(task.id, item);
     }
     item.task = task;
-    const title = task.id.startsWith('demo:') ? task.title : '#' + task.externalId + ' ' + task.title;
+    const title = task.id.startsWith('demo:') || task.source === 'ClickUp' ? (task.parentId ? '↳ ' : '') + task.title : '#' + task.externalId + ' ' + task.title;
     item.querySelector('.task-row span').textContent = title;
     item.querySelector('.task-row').title = title + (task.project ? ' · ' + task.project : '') + (!task.upstreamPresent ? ' · No longer in open assignments' : '');
     item.querySelector('.pill').textContent = stateLabel(task.state);
@@ -183,47 +222,46 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
     return item;
   }
 
-  function render(snapshot) {
-    lastSnapshot = snapshot;
-    const { connection, sync, tasks } = snapshot;
-    const ids = new Set(tasks.map(task => task.id));
-    for (const [id, item] of rows) if (!ids.has(id)) { item.remove(); rows.delete(id); }
-    for (const [source, list, count] of [['Redmine', 'task-list', 'redmine-count'], ['ClickUp', 'clickup-list', 'clickup-count']]) {
-      const own = tasks.filter(task => (task.source ?? 'Redmine') === source);
-      $(list).replaceChildren(...own.map(row));
-      $(count).textContent = own.filter(task => task.state !== 'completed').length || '';
-    }
-    $('clickup-empty').hidden = tasks.some(task => task.source === 'ClickUp');
-    renderSystem();
-    const redmineCount = tasks.filter(task => (task.source ?? 'Redmine') === 'Redmine').length;
-    if (!dialog) {
-      $('task-empty').hidden = redmineCount > 0;
-      $('task-empty').textContent = 'No Redmine sample tasks.';
-      return;
-    }
-    if (connection && configuredServer !== connection.baseUrl) {
+  function renderSource(source, ids, tasks, info) {
+    const own = tasks.filter(task => (task.source ?? 'Redmine') === source);
+    $(ids.list).replaceChildren(...own.map(row));
+    $(ids.count).textContent = own.filter(task => task.state !== 'completed').length || '';
+    $(ids.empty).hidden = own.length > 0;
+    if (!live) { $(ids.empty).textContent = `No ${source} sample tasks.`; return; }
+    const { connection, sync } = info ?? { connection: null, sync: { phase: 'idle' } };
+    const busy = busySources.has(source);
+    if (source === 'Redmine' && connection && configuredServer !== connection.baseUrl) {
       $('redmine-url').value = connection.baseUrl;
       configuredServer = connection.baseUrl;
     }
     const connected = !!connection?.connected;
-    $('connection-status').hidden = !connection;
-    $('connection-status').textContent = connection ? connection.userName + (connected ? ' · Connected' : ' · Disconnected; cached tasks') : '';
+    const where = connection?.workspaceName ?? connection?.baseUrl;
+    $(ids.status).hidden = !connection;
+    $(ids.status).textContent = connection ? connection.userName + (connected ? ' · Connected' : ' · Disconnected; cached tasks') : '';
     const last = connection?.lastSynced ? 'Last synced ' + new Date(connection.lastSynced * 1000).toLocaleTimeString() : '';
     let syncText = sync.phase === 'syncing' ? 'Syncing…' : [sync.message, last].filter(Boolean).join(' · ');
     if (sync.retryAt) syncText += ' · Retry after ' + new Date(sync.retryAt * 1000).toLocaleTimeString();
-    $('sync-status').textContent = connection ? syncText : '';
-    $('refresh-tasks').hidden = !connected;
-    $('refresh-tasks').disabled = connectionBusy || ['syncing', 'auth-error', 'rate-limited'].includes(sync.phase);
-    $('disconnect-redmine').hidden = !connected;
-    $('disconnect-redmine').disabled = connectionBusy;
-    $('open-connect').hidden = connected;
-    $('open-connect').textContent = connection ? 'Reconnect Redmine' : 'Connect Redmine';
-    $('edit-connection').textContent = connected ? 'Update connection' : 'Connect Redmine';
-    $('connection-summary').textContent = connection ? `${connection.baseUrl} · ${connection.userName}${connected ? '' : ' (disconnected)'}` : 'Not connected. Orbit reads your open assigned Redmine tickets.';
-    $('connect-redmine').textContent = connectionBusy ? 'Checking connection…' : 'Connect Redmine';
-    $('connect-redmine').disabled = connectionBusy;
-    $('task-empty').hidden = redmineCount > 0;
-    $('task-empty').textContent = connected ? 'No open assigned tickets. Orbit checks every 20 seconds.' : 'Connect Redmine to bring your open tickets into orbit.';
+    $(ids.sync).textContent = connection ? syncText : '';
+    $(ids.refresh).hidden = !connected;
+    $(ids.refresh).disabled = busy || ['syncing', 'auth-error', 'rate-limited'].includes(sync.phase);
+    $(ids.disconnect).hidden = !connected;
+    $(ids.disconnect).disabled = busy;
+    $(ids.open).hidden = connected;
+    $(ids.open).textContent = (connection ? 'Reconnect ' : 'Connect ') + source;
+    $(ids.edit).textContent = connected ? 'Update connection' : 'Connect ' + source;
+    $(ids.summary).textContent = connection ? `${where} · ${connection.userName}${connected ? '' : ' (disconnected)'}` : `Not connected. Orbit reads your ${ids.reads}.`;
+    const choosing = source === 'ClickUp' && !$('clickup-workspace-field').hidden;
+    $(ids.submit).textContent = busy ? 'Checking connection…' : choosing ? 'Connect workspace' : 'Connect ' + source;
+    $(ids.submit).disabled = busy;
+    $(ids.empty).textContent = connected ? `${ids.nothing} Orbit checks every 20 seconds.` : `Connect ${source} to bring your ${ids.reads.replace('open assigned ', 'open ')} into orbit.`;
+  }
+  function render(snapshot) {
+    lastSnapshot = snapshot;
+    const { tasks } = snapshot;
+    const ids = new Set(tasks.map(task => task.id));
+    for (const [id, item] of rows) if (!ids.has(id)) { item.remove(); rows.delete(id); }
+    for (const [source, sourceIds] of Object.entries(sources)) renderSource(source, sourceIds, tasks, snapshot.sources?.[source]);
+    renderSystem();
   }
   return {
     render,
@@ -231,9 +269,10 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
     showSystem(system) { shownSystem = system; renderSystem(); },
     selected() { if (lastSnapshot) render(lastSnapshot); },
     busy(id, value) {
-      if (id === 'connection') {
-        connectionBusy = value;
-        for (const input of document.querySelectorAll('#connection-form input, #connect-redmine')) input.disabled = value;
+      if (id.startsWith('connection:')) {
+        const source = id.slice('connection:'.length);
+        value ? busySources.add(source) : busySources.delete(source);
+        for (const input of document.querySelectorAll(`#${sources[source].form} input, #${sources[source].form} select`)) input.disabled = value;
         if (lastSnapshot) render(lastSnapshot);
       }
       if (id === 'preferences') for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = value;

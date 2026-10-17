@@ -988,7 +988,8 @@ function applySnapshot(snapshot, { settle, animate }) {
   stars.visible = preferences.stars;
   const depth = preferences.depth ?? true;
   depthLayer.visible = depth; foreground.visible = depth; $('depth').checked = depth;
-  stationNeedsSetup = !DEMO && !snapshot.connection?.connected;
+  // Pulse the station until at least one source is connected.
+  stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);
   lastTasks = snapshot.tasks;
   updateEmptyScene();
   if (renderer.getPixelRatio() !== preferences.resolution) { renderer.setPixelRatio(preferences.resolution); resize(); }

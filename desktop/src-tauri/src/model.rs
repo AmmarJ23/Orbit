@@ -9,10 +9,39 @@ pub enum OrbitState {
     Completed,
 }
 
+// Where a task comes from. Serialized as the display names the frontend already uses.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum Source {
+    #[default]
+    Redmine,
+    ClickUp,
+}
+impl Source {
+    pub const ALL: [Source; 2] = [Source::Redmine, Source::ClickUp];
+    pub fn name(self) -> &'static str {
+        match self {
+            Source::Redmine => "Redmine",
+            Source::ClickUp => "ClickUp",
+        }
+    }
+    pub fn key(self) -> &'static str {
+        match self {
+            Source::Redmine => "redmine",
+            Source::ClickUp => "clickup",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Task {
     pub id: String,
+    // Older rows were all Redmine.
+    #[serde(default)]
+    pub source: Source,
+    // ClickUp subtasks keep their parent's id; grouping/hiding builds on this later.
+    #[serde(default)]
+    pub parent_id: Option<String>,
     pub external_id: String,
     pub title: String,
     pub project: Option<String>,
@@ -87,7 +116,14 @@ impl Preferences {
 #[serde(rename_all = "camelCase")]
 pub struct Account {
     pub id: String,
+    #[serde(default)]
+    pub source: Source,
     pub base_url: String,
+    // ClickUp workspace the tasks are read from; Redmine has none.
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+    #[serde(default)]
+    pub workspace_name: Option<String>,
     pub user_id: u64,
     pub user_name: String,
     pub credential_ref: Option<String>,
@@ -99,15 +135,32 @@ pub struct Account {
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SavedData {
+    // One active account per source. Older rows stored a single Redmine `activeAccount`;
+    // the repository moves it here on load.
+    #[serde(default)]
+    pub active_accounts: BTreeMap<Source, String>,
+    #[serde(default, skip_serializing)]
     pub active_account: Option<String>,
     pub accounts: BTreeMap<String, Account>,
     pub preferences: Preferences,
+}
+impl SavedData {
+    pub fn active(&self, source: Source) -> Option<&Account> {
+        self.active_accounts
+            .get(&source)
+            .and_then(|id| self.accounts.get(id))
+    }
+    pub fn active_mut(&mut self, source: Source) -> Option<&mut Account> {
+        let id = self.active_accounts.get(&source)?;
+        self.accounts.get_mut(id)
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionInfo {
     pub base_url: String,
+    pub workspace_name: Option<String>,
     pub user_name: String,
     pub connected: bool,
     pub last_synced: Option<u64>,
@@ -135,6 +188,11 @@ pub struct Snapshot {
     pub revision: u64,
     pub tasks: Vec<Task>,
     pub preferences: Preferences,
+    pub sources: BTreeMap<Source, SourceInfo>,
+}
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceInfo {
     pub connection: Option<ConnectionInfo>,
     pub sync: SyncInfo,
 }
@@ -148,6 +206,7 @@ pub struct SnapshotEvent {
 #[derive(Clone, Debug)]
 pub struct ImportedTask {
     pub external_id: String,
+    pub parent_id: Option<String>,
     pub title: String,
     pub project: Option<String>,
     pub priority: Option<String>,
@@ -169,8 +228,10 @@ pub fn reconcile(account: &mut Account, imported: Vec<ImportedTask>, now: u64) {
         .iter()
         .map(|(k, t)| (k.clone(), t.upstream_present))
         .collect();
+    let source = account.source;
     for task in account.tasks.values_mut() {
         task.upstream_present = false;
+        task.source = source;
     }
     for item in imported {
         let id = format!("{}|{}", account.id, item.external_id);
@@ -180,6 +241,7 @@ pub fn reconcile(account: &mut Account, imported: Vec<ImportedTask>, now: u64) {
                 task.completed_from = None;
             }
             task.title = item.title;
+            task.parent_id = item.parent_id;
             task.project = item.project;
             task.priority = item.priority;
             task.url = item.url;
@@ -190,6 +252,8 @@ pub fn reconcile(account: &mut Account, imported: Vec<ImportedTask>, now: u64) {
                 Task {
                     seed: stable_seed(&id),
                     id,
+                    source,
+                    parent_id: item.parent_id,
                     external_id: item.external_id,
                     title: item.title,
                     project: item.project,

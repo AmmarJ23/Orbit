@@ -1,10 +1,11 @@
 use crate::{
     credentials::Credentials,
+    http::{Remote, RemoteError, Workspace},
     model::*,
-    redmine::{normalize_server, Remote, RemoteError},
     repository::Repository,
 };
 use std::{
+    collections::BTreeMap,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, SyncSender},
@@ -23,38 +24,49 @@ struct Runtime {
     repository: Repository,
     saved: SavedData,
     revision: u64,
-    sync: SyncInfo,
+    sync: BTreeMap<Source, SyncInfo>,
 }
 pub struct Service {
     runtime: Mutex<Runtime>,
     network: Mutex<()>,
     credentials: Arc<dyn Credentials>,
-    remote: Arc<dyn Remote>,
+    remotes: BTreeMap<Source, Arc<dyn Remote>>,
     publish: Arc<dyn Fn(SnapshotEvent) + Send + Sync>,
     wake: Mutex<Option<SyncSender<()>>>,
     stopped: AtomicBool,
 }
 impl Runtime {
+    fn sync(&self, source: Source) -> SyncInfo {
+        self.sync.get(&source).cloned().unwrap_or_default()
+    }
     fn snapshot(&self) -> Snapshot {
-        let account = self
-            .saved
-            .active_account
-            .as_ref()
-            .and_then(|id| self.saved.accounts.get(id));
+        let mut tasks = Vec::new();
+        let mut sources = BTreeMap::new();
+        for source in Source::ALL {
+            let account = self.saved.active(source);
+            if let Some(account) = account {
+                tasks.extend(account.tasks.values().cloned());
+            }
+            sources.insert(
+                source,
+                SourceInfo {
+                    connection: account.map(|a| ConnectionInfo {
+                        base_url: a.base_url.clone(),
+                        workspace_name: a.workspace_name.clone(),
+                        user_name: a.user_name.clone(),
+                        connected: a.credential_ref.is_some(),
+                        last_synced: a.last_synced,
+                    }),
+                    sync: self.sync(source),
+                },
+            );
+        }
         Snapshot {
             mode: "live",
             revision: self.revision,
             preferences: self.saved.preferences.clone(),
-            sync: self.sync.clone(),
-            tasks: account
-                .map(|a| a.tasks.values().cloned().collect())
-                .unwrap_or_default(),
-            connection: account.map(|a| ConnectionInfo {
-                base_url: a.base_url.clone(),
-                user_name: a.user_name.clone(),
-                connected: a.credential_ref.is_some(),
-                last_synced: a.last_synced,
-            }),
+            tasks,
+            sources,
         }
     }
 }
@@ -63,7 +75,7 @@ impl Service {
         repository: Repository,
         saved: SavedData,
         credentials: Arc<dyn Credentials>,
-        remote: Arc<dyn Remote>,
+        remotes: BTreeMap<Source, Arc<dyn Remote>>,
         publish: Arc<dyn Fn(SnapshotEvent) + Send + Sync>,
     ) -> Arc<Self> {
         Arc::new(Self {
@@ -71,15 +83,20 @@ impl Service {
                 repository,
                 saved,
                 revision: 0,
-                sync: SyncInfo::default(),
+                sync: BTreeMap::new(),
             }),
             network: Mutex::new(()),
             credentials,
-            remote,
+            remotes,
             publish,
             wake: Mutex::new(None),
             stopped: AtomicBool::new(false),
         })
+    }
+    fn remote(&self, source: Source) -> Result<&Arc<dyn Remote>, String> {
+        self.remotes
+            .get(&source)
+            .ok_or_else(|| format!("{} is not available in this build.", source.name()))
     }
     pub fn start(self: &Arc<Self>) {
         let (sender, receiver) = mpsc::sync_channel(1);
@@ -93,7 +110,10 @@ impl Service {
                     break;
                 }
                 while receiver.try_recv().is_ok() {}
-                service.sync_once();
+                // Sources sync one after another; one failing never blocks the other.
+                for source in Source::ALL {
+                    service.sync_once(source);
+                }
             }
         });
         let _ = sender.try_send(());
@@ -125,23 +145,27 @@ impl Service {
         self.emit(runtime, animate);
         Ok(runtime.snapshot())
     }
-    fn sync_status(&self, info: SyncInfo) {
+    fn sync_status(&self, source: Source, info: SyncInfo) {
         let mut runtime = self.runtime.lock().unwrap();
-        runtime.sync = info;
+        runtime.sync.insert(source, info);
         runtime.revision += 1;
         self.emit(&runtime, false);
     }
     pub fn set_state(&self, id: &str, state: OrbitState) -> Result<Snapshot, String> {
         let mut runtime = self.runtime.lock().unwrap();
         let mut saved = runtime.saved.clone();
-        let task = saved
-            .active_account
-            .as_ref()
-            .and_then(|id| saved.accounts.get_mut(id))
+        let task = Source::ALL
+            .into_iter()
+            .filter_map(|source| saved.active_accounts.get(&source).cloned())
+            .find(|account| saved.accounts[account].tasks.contains_key(id))
+            .and_then(|account| saved.accounts.get_mut(&account))
             .and_then(|a| a.tasks.get_mut(id))
-            .ok_or("This task is no longer in the active account.")?;
+            .ok_or("This task is no longer in an active account.")?;
         if !task.upstream_present && state != OrbitState::Completed {
-            return Err("This ticket is no longer assigned and open in Redmine. It will return as To do if it reappears.".into());
+            return Err(format!(
+                "This task is no longer assigned and open in {}. It will return as To do if it reappears.",
+                task.source.name()
+            ));
         }
         if state == OrbitState::Completed && task.state != OrbitState::Completed {
             task.completed_from = Some(task.state);
@@ -159,29 +183,60 @@ impl Service {
         saved.preferences = preferences;
         self.commit(&mut runtime, saved, false)
     }
-    pub fn refresh(&self) -> Result<(), String> {
+    // A refresh wakes the shared worker, which syncs every connected source.
+    pub fn refresh(&self, source: Source) -> Result<(), String> {
+        let name = source.name();
         let snapshot = self.snapshot();
-        if !snapshot.connection.is_some_and(|c| c.connected) {
-            return Err("Connect Redmine before refreshing.".into());
+        let info = &snapshot.sources[&source];
+        if !info.connection.as_ref().is_some_and(|c| c.connected) {
+            return Err(format!("Connect {name} before refreshing."));
         }
-        if snapshot.sync.phase == "auth-error" {
-            return Err("Update your Redmine credentials to resume syncing.".into());
+        if info.sync.phase == "auth-error" {
+            return Err(format!("Update your {name} credentials to resume syncing."));
         }
         if let Some(sender) = self.wake.lock().unwrap().as_ref() {
             let _ = sender.try_send(());
         }
         Ok(())
     }
-    pub fn connect(&self, input: &str, key: &str) -> Result<Snapshot, String> {
-        let server = normalize_server(input)?;
-        if key.trim().is_empty() {
-            return Err("Enter your Redmine API key.".into());
-        }
+    pub fn workspaces(&self, source: Source, key: &str) -> Result<Vec<Workspace>, String> {
+        let _gate = self.network.lock().unwrap();
+        self.remote(source)?.workspaces(key).map_err(|e| e.message)
+    }
+    pub fn connect(
+        &self,
+        source: Source,
+        base: &str,
+        key: &str,
+        scope: Option<&str>,
+    ) -> Result<Snapshot, String> {
+        let remote = self.remote(source)?.clone();
         let _gate = self.network.lock().unwrap();
         // Do not replace the old connection or pause its polling for invalid setup input.
-        let (user_id, user_name) = self.remote.identify(&server, key).map_err(|e| e.message)?;
-        let imported = self.remote.tasks(&server, key).map_err(|e| e.message)?;
-        let account_id = format!("redmine|{server}|{user_id}");
+        let identity = remote.identify(base, key, scope).map_err(|e| e.message)?;
+        let account_id = format!(
+            "{}|{}|{}",
+            source.key(),
+            identity
+                .workspace_id
+                .as_deref()
+                .unwrap_or(&identity.base_url),
+            identity.user_id
+        );
+        let probe = Account {
+            id: account_id.clone(),
+            source,
+            base_url: identity.base_url.clone(),
+            workspace_id: identity.workspace_id.clone(),
+            workspace_name: identity.workspace_name.clone(),
+            user_id: identity.user_id,
+            user_name: identity.user_name.clone(),
+            credential_ref: None,
+            initialized: false,
+            last_synced: None,
+            tasks: Default::default(),
+        };
+        let imported = remote.tasks(&probe, key).map_err(|e| e.message)?;
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let reference = format!(
             "{account_id}|{}|{}",
@@ -191,33 +246,21 @@ impl Service {
                 .as_nanos(),
             COUNTER.fetch_add(1, Ordering::Relaxed)
         );
-        self.credentials.set(&reference, key)?;
+        self.credentials.set(&reference, key.trim())?;
         let mut runtime = self.runtime.lock().unwrap();
         let mut saved = runtime.saved.clone();
-        let account = saved
-            .accounts
-            .entry(account_id.clone())
-            .or_insert_with(|| Account {
-                id: account_id.clone(),
-                base_url: server,
-                user_id,
-                user_name: user_name.clone(),
-                credential_ref: None,
-                initialized: false,
-                last_synced: None,
-                tasks: Default::default(),
-            });
+        let account = saved.accounts.entry(account_id.clone()).or_insert(probe);
         let old_ref = account.credential_ref.replace(reference.clone());
-        account.user_name = user_name;
+        account.user_name = identity.user_name;
+        account.workspace_name = identity.workspace_name;
         reconcile(account, imported, now());
-        saved.active_account = Some(account_id);
-        let old_sync = runtime.sync.clone();
-        runtime.sync = SyncInfo::default();
+        saved.active_accounts.insert(source, account_id);
+        let old_sync = runtime.sync.insert(source, SyncInfo::default());
         match self.commit(&mut runtime, saved, false) {
             Ok(snapshot) => {
                 if let Some(old) = old_ref {
                     if self.credentials.delete(&old).is_err() {
-                        runtime.sync.message = Some(
+                        runtime.sync.entry(source).or_default().message = Some(
                             "Connected, but an older Keychain entry could not be removed.".into(),
                         );
                         runtime.revision += 1;
@@ -228,21 +271,22 @@ impl Service {
                 Ok(snapshot)
             }
             Err(error) => {
-                runtime.sync = old_sync;
+                match old_sync {
+                    Some(old) => runtime.sync.insert(source, old),
+                    None => runtime.sync.remove(&source),
+                };
                 let _ = self.credentials.delete(&reference);
                 Err(error)
             }
         }
     }
-    pub fn disconnect(&self) -> Result<Snapshot, String> {
+    pub fn disconnect(&self, source: Source) -> Result<Snapshot, String> {
         let _gate = self.network.lock().unwrap();
         let mut runtime = self.runtime.lock().unwrap();
         let mut saved = runtime.saved.clone();
         let account = saved
-            .active_account
-            .as_ref()
-            .and_then(|id| saved.accounts.get_mut(id))
-            .ok_or("No Redmine connection to disconnect.")?;
+            .active_mut(source)
+            .ok_or_else(|| format!("No {} connection to disconnect.", source.name()))?;
         let reference = account.credential_ref.take();
         let secret = reference
             .as_ref()
@@ -250,12 +294,13 @@ impl Service {
         if let Some(reference) = reference.as_ref() {
             self.credentials.delete(reference)?;
         }
-        let old_sync = runtime.sync.clone();
-        runtime.sync = SyncInfo::default();
+        let old_sync = runtime.sync.insert(source, SyncInfo::default());
         match self.commit(&mut runtime, saved, false) {
             Ok(snapshot) => Ok(snapshot),
             Err(error) => {
-                runtime.sync = old_sync;
+                if let Some(old) = old_sync {
+                    runtime.sync.insert(source, old);
+                }
                 if let (Some(reference), Some(secret)) = (reference, secret) {
                     let _ = self.credentials.set(&reference, &secret);
                 }
@@ -265,53 +310,41 @@ impl Service {
     }
     pub fn source_url(&self, id: &str) -> Result<String, String> {
         let runtime = self.runtime.lock().unwrap();
-        let account = runtime
-            .saved
-            .active_account
-            .as_ref()
-            .and_then(|id| runtime.saved.accounts.get(id))
-            .ok_or("No active Redmine account.")?;
-        let task = account.tasks.get(id).ok_or("Task not found.")?;
-        let number = task
-            .external_id
-            .parse::<u64>()
-            .map_err(|_| "Invalid ticket number.")?;
-        Ok(format!(
-            "{}/issues/{number}",
-            normalize_server(&account.base_url)?
-        ))
+        let (account, task) = Source::ALL
+            .into_iter()
+            .filter_map(|source| runtime.saved.active(source))
+            .find_map(|a| a.tasks.get(id).map(|t| (a, t)))
+            .ok_or("Task not found.")?;
+        self.remote(account.source)?
+            .source_url(account, &task.external_id)
     }
-    pub fn sync_once(&self) {
+    pub fn sync_once(&self, source: Source) {
+        let Ok(remote) = self.remote(source).cloned() else {
+            return;
+        };
         let _gate = self.network.lock().unwrap();
-        let (account_id, server, reference) = {
+        let (account, reference) = {
             let runtime = self.runtime.lock().unwrap();
-            if runtime.sync.phase == "auth-error"
-                || runtime.sync.retry_at.is_some_and(|t| t > now())
-            {
+            let sync = runtime.sync(source);
+            if sync.phase == "auth-error" || sync.retry_at.is_some_and(|t| t > now()) {
                 return;
             }
-            let Some(account) = runtime
-                .saved
-                .active_account
-                .as_ref()
-                .and_then(|id| runtime.saved.accounts.get(id))
-            else {
+            let Some(account) = runtime.saved.active(source) else {
                 return;
             };
-            let Some(reference) = account.credential_ref.as_ref() else {
+            let Some(reference) = account.credential_ref.clone() else {
                 return;
             };
-            (
-                account.id.clone(),
-                account.base_url.clone(),
-                reference.clone(),
-            )
+            (account.clone(), reference)
         };
-        self.sync_status(SyncInfo {
-            phase: "syncing".into(),
-            message: None,
-            retry_at: None,
-        });
+        self.sync_status(
+            source,
+            SyncInfo {
+                phase: "syncing".into(),
+                message: None,
+                retry_at: None,
+            },
+        );
         let result = self
             .credentials
             .get(&reference)
@@ -320,40 +353,46 @@ impl Service {
                 auth: true,
                 retry_after: None,
             })
-            .and_then(|key| self.remote.tasks(&server, &key));
+            .and_then(|key| remote.tasks(&account, &key));
         match result {
             Ok(imported) => {
                 let mut runtime = self.runtime.lock().unwrap();
                 // Clone the current state after the fetch, preserving actions made during it.
                 let mut saved = runtime.saved.clone();
-                let Some(account) = saved.accounts.get_mut(&account_id) else {
+                let Some(current) = saved.accounts.get_mut(&account.id) else {
                     return;
                 };
-                let animate = account.initialized;
-                reconcile(account, imported, now());
-                runtime.sync = SyncInfo::default();
+                let animate = current.initialized;
+                reconcile(current, imported, now());
+                runtime.sync.insert(source, SyncInfo::default());
                 if let Err(message) = self.commit(&mut runtime, saved, animate) {
-                    runtime.sync = SyncInfo {
-                        phase: "storage-error".into(),
-                        message: Some(message),
-                        retry_at: None,
-                    };
+                    runtime.sync.insert(
+                        source,
+                        SyncInfo {
+                            phase: "storage-error".into(),
+                            message: Some(message),
+                            retry_at: None,
+                        },
+                    );
                     runtime.revision += 1;
                     self.emit(&runtime, false);
                 }
             }
-            Err(error) => self.sync_status(SyncInfo {
-                phase: if error.auth {
-                    "auth-error"
-                } else if error.retry_after.is_some() {
-                    "rate-limited"
-                } else {
-                    "offline"
-                }
-                .into(),
-                message: Some(error.message),
-                retry_at: error.retry_after.map(|delay| now().saturating_add(delay)),
-            }),
+            Err(error) => self.sync_status(
+                source,
+                SyncInfo {
+                    phase: if error.auth {
+                        "auth-error"
+                    } else if error.retry_after.is_some() {
+                        "rate-limited"
+                    } else {
+                        "offline"
+                    }
+                    .into(),
+                    message: Some(error.message),
+                    retry_at: error.retry_after.map(|delay| now().saturating_add(delay)),
+                },
+            ),
         }
     }
 }

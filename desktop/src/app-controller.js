@@ -81,9 +81,15 @@ export function createAppController({ repository, view }) {
     start, setVisibility, receive, get snapshot() { return snapshot; }, get visible() { return visible() && ready && !hydrating; },
     setState: (id, state) => operation(() => repository.setState(id, state), id, { animate: true }),
     savePreferences,
-    connect: (baseUrl, apiKey) => operation(() => repository.connect(baseUrl, apiKey), 'connection', { settle: true }),
-    disconnect: () => operation(() => repository.disconnect(), 'connection'),
-    refresh: () => operation(() => repository.refresh(), 'refresh'),
+    connect: (source, details) => operation(() => repository.connect(source, details), 'connection:' + source, { settle: true }),
+    // Returns the workspaces, or null after showing the error.
+    async listWorkspaces(source, apiKey) {
+      let list = null;
+      await operation(async () => { list = await repository.listWorkspaces(source, apiKey); }, 'connection:' + source);
+      return list;
+    },
+    disconnect: source => operation(() => repository.disconnect(source), 'connection:' + source),
+    refresh: source => operation(() => repository.refresh(source), 'refresh'),
     openSource: id => operation(() => repository.openSource(id), 'source'),
   };
 }

@@ -1,4 +1,4 @@
-use crate::model::SavedData;
+use crate::model::{SavedData, Source};
 use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 
@@ -36,18 +36,23 @@ impl Repository {
             })
             .optional()
             .map_err(|_| STORAGE_ERROR.to_string())?;
-        let data: SavedData = match document {
+        let mut data: SavedData = match document {
             Some(json) => serde_json::from_str(&json).map_err(|_| STORAGE_ERROR.to_string())?,
             None => SavedData::default(),
         };
         data.preferences
             .validate()
             .map_err(|_| STORAGE_ERROR.to_string())?;
-        if data
-            .active_account
-            .as_ref()
-            .is_some_and(|id| !data.accounts.contains_key(id))
-        {
+        // Documents from before ClickUp held one Redmine account; it stays active.
+        if let Some(id) = data.active_account.take() {
+            data.active_accounts.entry(Source::Redmine).or_insert(id);
+        }
+        if data.active_accounts.iter().any(|(source, id)| {
+            !data
+                .accounts
+                .get(id)
+                .is_some_and(|account| account.source == *source)
+        }) {
             return Err(STORAGE_ERROR.into());
         }
         Ok((Self { connection }, data))

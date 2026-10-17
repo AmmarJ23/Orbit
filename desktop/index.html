@@ -10,7 +10,7 @@
   <button type="button" id="new-task" class="primary">+ New task</button>
   <!-- demo:end -->
   <!-- live:start -->
-  <button type="button" id="new-task" class="primary" disabled title="Tasks come from Redmine for now">+ New task</button>
+  <button type="button" id="new-task" class="primary" disabled title="Tasks come from Redmine and ClickUp">+ New task</button>
   <!-- live:end -->
 </header>
 <section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1 id="system-title">Your active system</h1><p id="system-counts" role="status">—</p></section>
@@ -33,7 +33,17 @@
   </section>
   <section class="source-card glass" data-source="clickup">
     <button type="button" class="card-head" aria-expanded="false" aria-controls="clickup-body"><span class="source-icon clickup" aria-hidden="true">C</span><span class="card-title">ClickUp</span><span class="card-count" id="clickup-count"></span></button>
-    <div class="card-body" id="clickup-body"><p class="task-empty" id="clickup-empty">ClickUp sync is coming soon.</p><ul class="task-list" id="clickup-list" aria-label="ClickUp tasks"></ul></div>
+    <div class="card-body" id="clickup-body">
+      <!-- live:start -->
+      <div class="card-status"><p id="clickup-connection-status" role="status"></p><button type="button" id="clickup-refresh" class="quiet" hidden>Refresh</button></div>
+      <p id="clickup-sync-status" role="status"></p>
+      <!-- live:end -->
+      <p class="task-empty" id="clickup-empty">No ClickUp sample tasks.</p>
+      <!-- live:start -->
+      <button type="button" id="clickup-open-connect" class="primary" hidden>Connect ClickUp</button>
+      <!-- live:end -->
+      <ul class="task-list" id="clickup-list" aria-label="ClickUp tasks"></ul>
+    </div>
   </section>
   <section class="source-card glass" data-source="notes">
     <button type="button" class="card-head" aria-expanded="false" aria-controls="notes-body"><span class="source-icon notes" aria-hidden="true">N</span><span class="card-title">Personal notes</span><span class="card-count">0</span></button>
@@ -78,6 +88,7 @@
   <!-- demo:end -->
   <!-- live:start -->
   <button id="connection-tab" type="button" role="tab" aria-selected="true" aria-controls="connection-panel">Redmine</button>
+  <button id="clickup-tab" type="button" role="tab" aria-selected="false" aria-controls="clickup-panel" tabindex="-1">ClickUp</button>
   <!-- live:end -->
   <button id="motion-tab" type="button" role="tab" aria-selected="false" aria-controls="motion-panel" tabindex="-1">Motion & quality</button></div>
   <!-- demo:start -->
@@ -91,6 +102,11 @@
     <p id="connection-summary" class="note"></p>
     <div class="form-actions"><button type="button" id="edit-connection" class="primary">Connect Redmine</button><button type="button" id="disconnect-redmine" hidden>Disconnect</button></div>
     <p id="connection-feedback" role="status"></p>
+  </section>
+  <section id="clickup-panel" role="tabpanel" aria-labelledby="clickup-tab" hidden>
+    <p id="clickup-summary" class="note"></p>
+    <div class="form-actions"><button type="button" id="clickup-edit-connection" class="primary">Connect ClickUp</button><button type="button" id="clickup-disconnect" hidden>Disconnect</button></div>
+    <p id="clickup-feedback" role="status"></p>
   </section>
   <!-- live:end -->
   <section id="motion-panel" role="tabpanel" aria-labelledby="motion-tab" hidden>
@@ -114,6 +130,16 @@
     <div class="secret"><input id="redmine-key" type="password" required autocomplete="off" spellcheck="false" aria-describedby="key-hint"><button type="button" id="toggle-key" class="quiet" aria-pressed="false">Show</button></div>
     <p class="note" id="key-hint">Find it in Redmine → My account → API access key. Stored in macOS Keychain; Orbit only reads your open assigned tickets.</p>
     <div class="form-actions"><button type="button" id="cancel-connect">Cancel</button><button type="submit" id="connect-redmine" class="primary">Connect Redmine</button></div>
+  </form>
+</dialog>
+<dialog id="clickup-dialog" class="glass modal" aria-labelledby="clickup-connect-title">
+  <form id="clickup-form">
+    <h2 id="clickup-connect-title">Connect ClickUp</h2>
+    <label for="clickup-key">Personal API token</label>
+    <div class="secret"><input id="clickup-key" type="password" required autocomplete="off" spellcheck="false" placeholder="pk_…" aria-describedby="clickup-key-hint"><button type="button" id="clickup-toggle-key" class="quiet" aria-pressed="false">Show</button></div>
+    <p class="note" id="clickup-key-hint">Find it in ClickUp → Settings → Apps → API token. Stored in macOS Keychain; Orbit only reads your open assigned tasks.</p>
+    <div id="clickup-workspace-field" hidden><label for="clickup-workspace">Workspace</label><select id="clickup-workspace"></select></div>
+    <div class="form-actions"><button type="button" id="clickup-cancel">Cancel</button><button type="submit" id="clickup-connect" class="primary">Connect ClickUp</button></div>
   </form>
 </dialog>
 <!-- live:end -->

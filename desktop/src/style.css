@@ -53,9 +53,9 @@ header>*{pointer-events:auto}
 .source-icon.redmine{background:#ff91a422;color:var(--danger)}.source-icon.clickup{background:#9de5f522;color:var(--cyan)}.source-icon.notes{background:#79bfff22;color:var(--primary)}
 .card-body{padding:0 8px}
 .card-status{display:flex;align-items:center;justify-content:space-between;gap:8px}
-#connection-status,#sync-status,.task-empty,#connection-feedback{font-size:11px;line-height:1.6;color:var(--muted);margin:2px 0 6px;overflow-wrap:anywhere}
-#sync-status:empty,#connection-feedback:empty{display:none}
-#open-connect{width:100%;margin:4px 0 6px}
+#connection-status,#sync-status,.task-empty,#connection-feedback,#clickup-connection-status,#clickup-sync-status,#clickup-feedback{font-size:11px;line-height:1.6;color:var(--muted);margin:2px 0 6px;overflow-wrap:anywhere}
+#sync-status:empty,#connection-feedback:empty,#clickup-sync-status:empty,#clickup-feedback:empty,#clickup-connection-status:empty{display:none}
+#open-connect,#clickup-open-connect{width:100%;margin:4px 0 6px}
 .task-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .task-list:empty{display:none}
 .task-list li{display:flex;align-items:center;gap:6px;padding:2px 2px 2px 0;border-radius:8px;background:#0c122266;border:1px solid transparent}

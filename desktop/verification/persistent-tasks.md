@@ -19,9 +19,11 @@ The desktop automated test suite and its commands were removed at the user's req
 - Browser demo renders the expected planets, creates and selects a new active planet, and starts its visible completion journey.
 - Packaged demo launches with its own identity and testing controls; the live connection panel is absent.
 
+- 2026-10-17, real Redmine account (red.mypatil.my, user 712), key entered through Settings in a fresh live build: the one open assigned ticket (#26430) was imported as a Not started planet with the correct title, project, priority and source link; the key is in the login Keychain under `my.ammar.orbit.redmine` and only its reference is in `orbit.sqlite`; `lastSynced` kept advancing in the saved state (~20s steps) without user action.
+
 ## Remaining manual checks
 
-- Enter the real Redmine key through Settings to verify actual account permissions, live import, native background polling, source links and imported-task keyboard interactions. No real key was available to this implementation run.
+- Real-account source-link opening, imported-task keyboard interactions and restoration after a quit/relaunch.
 - Native demo hide/minimize cycles during formation, transfer and completion should be exercised interactively. Further native UI automation was interrupted by a foreground focus change, so these physical interaction checks are not claimed as passed.
 - Longer uninterrupted fullscreen GPU/energy and everyday-work validation remains a follow-up to the foundation measurements in `native-smoke.md`.
 

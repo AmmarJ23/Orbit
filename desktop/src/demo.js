@@ -14,8 +14,8 @@ const specs = [
 export function createDemoRepository() {
   let sequence = 10;
   const listeners = new Set();
-  const snapshot = { mode: 'demo', revision: 0, preferences: { ...defaultPreferences }, connection: null,
-    sync: { phase: 'idle' }, tasks: specs.map(([title, source, state, radius, color, angle, speed], i) => ({
+  const snapshot = { mode: 'demo', revision: 0, preferences: { ...defaultPreferences }, sources: {},
+    tasks: specs.map(([title, source, state, radius, color, angle, speed], i) => ({
       id: `demo:${i + 1}`, externalId: String(i + 1), title, source, state, seed: i + 19,
       upstreamPresent: true, project: 'Animation testing', priority: null, url: null,
       appearance: { radius, color, angle, speed },

@@ -9,9 +9,13 @@ use tauri::{
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 #[cfg(not(feature = "demo"))]
+mod clickup;
+#[cfg(not(feature = "demo"))]
 mod commands;
 #[cfg(not(feature = "demo"))]
 mod credentials;
+#[cfg(not(feature = "demo"))]
+mod http;
 #[cfg(not(feature = "demo"))]
 mod model;
 #[cfg(not(feature = "demo"))]
@@ -124,9 +128,10 @@ fn main() {
         commands::get_snapshot,
         commands::set_orbit_state,
         commands::save_preferences,
-        commands::connect_redmine,
-        commands::refresh_redmine,
-        commands::disconnect_redmine,
+        commands::connect_source,
+        commands::list_workspaces,
+        commands::refresh_source,
+        commands::disconnect_source,
         commands::open_source_task
     ]);
     builder
@@ -143,12 +148,23 @@ fn main() {
                         .map_err(|_| "Could not create Orbit's application data directory.")?;
                     let (repository, saved) =
                         repository::Repository::open(&directory.join("orbit.sqlite"))?;
-                    let remote = redmine::Redmine(redmine::NativeHttp::new()?);
+                    let mut remotes: std::collections::BTreeMap<
+                        model::Source,
+                        std::sync::Arc<dyn http::Remote>,
+                    > = Default::default();
+                    remotes.insert(
+                        model::Source::Redmine,
+                        std::sync::Arc::new(redmine::Redmine(http::NativeHttp::new()?)),
+                    );
+                    remotes.insert(
+                        model::Source::ClickUp,
+                        std::sync::Arc::new(clickup::ClickUp(http::NativeHttp::new()?)),
+                    );
                     Ok(service::Service::new(
                         repository,
                         saved,
                         std::sync::Arc::new(credentials::Keychain),
-                        std::sync::Arc::new(remote),
+                        remotes,
                         std::sync::Arc::new(move |mut event| {
                             event.animate &= handle
                                 .state::<RenderState>()
