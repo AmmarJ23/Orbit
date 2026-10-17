@@ -42,6 +42,35 @@ function setupSourceRail() {
   document.addEventListener('pointerdown', event => {
     if (narrow() && !event.target.closest('.sources, #task-menu')) for (const card of cards) card.classList.remove('expanded');
   });
+  for (const scroller of [document.querySelector('.sources'), ...cards]) fadeOverflow(scroller);
+}
+
+// Fades content into the scene on whichever edge has more to scroll. The fade
+// grows with the distance left to scroll, so it eases in rather than popping.
+const FADE = 26, MASK_PAD = 64;
+function fadeOverflow(scroller) {
+  const update = () => {
+    const hidden = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const topFade = Math.min(FADE, scroller.scrollTop), bottomFade = Math.min(FADE, hidden - scroller.scrollTop);
+    const view = scroller.getBoundingClientRect(), top = view.top + scroller.clientTop, bottom = top + scroller.clientHeight;
+    for (const child of scroller.children) {
+      const box = child.getBoundingClientRect();
+      const cutTop = topFade > 0.5 && box.top < top + topFade, cutBottom = bottomFade > 0.5 && box.bottom > bottom - bottomFade;
+      child.classList.toggle('edge-fade', cutTop || cutBottom);
+      if (!cutTop && !cutBottom) continue;
+      const start = top - box.top + MASK_PAD, end = bottom - box.top + MASK_PAD;
+      child.style.setProperty('--fade-a', (cutTop ? start : 0) + 'px');
+      child.style.setProperty('--fade-b', (cutTop ? start + topFade : 0) + 'px');
+      child.style.setProperty('--fade-c', (cutBottom ? end - bottomFade : 1e5) + 'px');
+      child.style.setProperty('--fade-d', (cutBottom ? end : 1e5) + 'px');
+    }
+  };
+  scroller.addEventListener('scroll', update, { passive: true });
+  const resize = new ResizeObserver(update);
+  resize.observe(scroller);
+  const watch = () => { for (const child of scroller.children) resize.observe(child); };
+  new MutationObserver(() => { watch(); update(); }).observe(scroller, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+  watch(); update();
 }
 
 export function createAppUI({ controller, selectTask, selectedId }) {

@@ -41,6 +41,9 @@ header>*{pointer-events:auto}
 /* Source cards */
 .sources{position:fixed;left:var(--edge);top:170px;width:280px;max-height:calc(100dvh - 170px - 96px);overflow:auto;display:flex;flex-direction:column;gap:10px;scrollbar-width:none;z-index:3}
 .source-card{flex-shrink:0;padding:4px 4px 6px}
+/* Edge fade: app-ui.js masks whichever children cross a clipped edge, so they dissolve into the real scene behind.
+   The mask reaches 64px past the box so card shadows are not cut off. */
+.edge-fade{-webkit-mask-image:linear-gradient(transparent var(--fade-a),#000 var(--fade-b),#000 var(--fade-c),transparent var(--fade-d));mask-image:linear-gradient(transparent var(--fade-a),#000 var(--fade-b),#000 var(--fade-c),transparent var(--fade-d));-webkit-mask-size:100% calc(100% + 128px);mask-size:100% calc(100% + 128px);-webkit-mask-position:0 -64px;mask-position:0 -64px;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-clip:no-clip;mask-clip:no-clip}
 .card-head{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:9px 10px;cursor:default}
 .card-head:hover:not(:disabled){background:transparent}
 .card-title{font-size:13px;font-weight:600;flex:1;text-align:left}.card-count{color:var(--muted);font-size:11px}
