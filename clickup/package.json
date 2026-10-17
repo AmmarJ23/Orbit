@@ -1,0 +1,8 @@
+{
+  "name": "orbit-clickup",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "client.js",
+  "scripts": {"test": "node --test", "whoami": "node cli.js whoami", "tasks": "node cli.js tasks"}
+}
