@@ -73,7 +73,7 @@ function fadeOverflow(scroller) {
   watch(); update();
 }
 
-export function createAppUI({ controller, selectTask, selectedId, switchSystem }) {
+export function createAppUI({ controller, selectTask, selectedId, switchSystem, openTasks }) {
   const rows = new Map();
   let lastSnapshot;
   let configuredServer;
@@ -87,7 +87,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
     document.querySelector('.system-switch').setAttribute('aria-busy', String(travelling));
   }
   function renderSystem() {
-    const tasks = lastSnapshot?.tasks ?? [];
+    const tasks = (lastSnapshot?.tasks ?? []).filter(task => !task.hidden);
     const completed = shownSystem === 'completed';
     $('system-title').textContent = completed ? 'Your completed system' : 'Your active system';
     const done = tasks.filter(task => task.state === 'completed');
@@ -108,13 +108,13 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
       dialog: 'connect-dialog', form: 'connection-form', key: 'redmine-key', toggle: 'toggle-key', cancel: 'cancel-connect', submit: 'connect-redmine',
       open: 'open-connect', edit: 'edit-connection', disconnect: 'disconnect-redmine', refresh: 'refresh-tasks', status: 'connection-status',
       sync: 'sync-status', summary: 'connection-summary', feedback: 'connection-feedback', empty: 'task-empty', list: 'task-list', count: 'redmine-count',
-      reads: 'open assigned Redmine tickets', nothing: 'No open assigned tickets.',
+      reads: 'open assigned Redmine tickets', nothing: 'No open assigned tickets.', hidden: 'redmine-hidden',
     },
     ClickUp: {
       dialog: 'clickup-dialog', form: 'clickup-form', key: 'clickup-key', toggle: 'clickup-toggle-key', cancel: 'clickup-cancel', submit: 'clickup-connect',
       open: 'clickup-open-connect', edit: 'clickup-edit-connection', disconnect: 'clickup-disconnect', refresh: 'clickup-refresh', status: 'clickup-connection-status',
       sync: 'clickup-sync-status', summary: 'clickup-summary', feedback: 'clickup-feedback', empty: 'clickup-empty', list: 'clickup-list', count: 'clickup-count',
-      reads: 'open assigned ClickUp tasks', nothing: 'No open assigned tasks.',
+      reads: 'open assigned ClickUp tasks', nothing: 'No open assigned tasks.', hidden: 'clickup-hidden',
     },
   };
   const live = !!$('connect-dialog');
@@ -192,7 +192,9 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
     if (action === 'orbit') controller().setState(task.id, task.state === 'in-progress' ? 'not-started' : 'in-progress');
     if (action === 'complete') controller().setState(task.id, 'completed');
     if (action === 'open') controller().openSource(task.id);
+    if (action === 'hide') controller().setHidden([task.id], true);
   };
+  for (const button of document.querySelectorAll('[data-manage]')) button.onclick = () => openTasks();
   document.addEventListener('pointerdown', event => { if (!menu.hidden && !event.target.closest('#task-menu, .more')) closeMenu(); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) closeMenu(); });
 
@@ -223,10 +225,15 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem }
   }
 
   function renderSource(source, ids, tasks, info) {
-    const own = tasks.filter(task => (task.source ?? 'Redmine') === source);
+    const all = tasks.filter(task => (task.source ?? 'Redmine') === source);
+    // Hidden tasks are managed in the Tasks tab; the card only says how many there are.
+    const own = all.filter(task => !task.hidden);
+    const hiddenCount = all.length - own.length;
+    $(ids.hidden).hidden = !hiddenCount;
+    $(ids.hidden).textContent = `${hiddenCount} hidden · Manage in Tasks`;
     $(ids.list).replaceChildren(...own.map(row));
     $(ids.count).textContent = own.filter(task => task.state !== 'completed').length || '';
-    $(ids.empty).hidden = own.length > 0;
+    $(ids.empty).hidden = all.length > 0;
     if (!live) { $(ids.empty).textContent = `No ${source} sample tasks.`; return; }
     const { connection, sync } = info ?? { connection: null, sync: { phase: 'idle' } };
     const busy = busySources.has(source);

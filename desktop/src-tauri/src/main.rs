@@ -127,6 +127,7 @@ fn main() {
         report_rendering,
         commands::get_snapshot,
         commands::set_orbit_state,
+        commands::set_hidden,
         commands::save_preferences,
         commands::connect_source,
         commands::list_workspaces,

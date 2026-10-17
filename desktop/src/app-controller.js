@@ -80,6 +80,7 @@ export function createAppController({ repository, view }) {
   return {
     start, setVisibility, receive, get snapshot() { return snapshot; }, get visible() { return visible() && ready && !hydrating; },
     setState: (id, state) => operation(() => repository.setState(id, state), id, { animate: true }),
+    setHidden: (ids, hidden) => operation(() => repository.setHidden(ids, hidden), 'hidden', { animate: true }),
     savePreferences,
     connect: (source, details) => operation(() => repository.connect(source, details), 'connection:' + source, { settle: true }),
     // Returns the workspaces, or null after showing the error.

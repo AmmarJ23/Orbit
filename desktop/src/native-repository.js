@@ -8,6 +8,7 @@ export async function createNativeRepository() {
     getSnapshot: () => invoke('get_snapshot'),
     subscribe: handler => listen('orbit://snapshot', event => handler(event.payload)),
     setState: (id, orbitState) => invoke('set_orbit_state', { id, orbitState }),
+    setHidden: (ids, hidden) => invoke('set_hidden', { ids, hidden }),
     savePreferences: preferences => invoke('save_preferences', { preferences }),
     connect: (source, { baseUrl = null, apiKey, workspaceId = null }) => invoke('connect_source', { source, baseUrl, apiKey, workspaceId }),
     listWorkspaces: (source, apiKey) => invoke('list_workspaces', { source, apiKey }),

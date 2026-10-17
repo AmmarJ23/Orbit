@@ -30,6 +30,15 @@ pub async fn set_orbit_state(
     blocking(move || s.set_state(&id, orbit_state)).await
 }
 #[tauri::command]
+pub async fn set_hidden(
+    ids: Vec<String>,
+    hidden: bool,
+    state: tauri::State<'_, LiveState>,
+) -> Result<Snapshot, String> {
+    let s = service(&state)?;
+    blocking(move || s.set_hidden(&ids, hidden)).await
+}
+#[tauri::command]
 pub async fn save_preferences(
     preferences: Preferences,
     state: tauri::State<'_, LiveState>,

@@ -158,5 +158,33 @@ i{display:block;width:7px;height:7px;border-radius:50%}.comet{background:var(--p
   #completed-preview{left:calc(var(--edge) + 60px)}
   .legend span:nth-child(2){display:none}
 }
-@media(max-width:900px){.legend,.nav-tabs{display:none}header{grid-template-columns:1fr auto}}
+@media(max-width:900px){.legend{display:none}}
 @media(max-height:760px){.intro .eyebrow,.scene-hint{display:none}.intro{top:64px}.intro h1{font-size:21px;margin-top:0}.sources{top:124px;max-height:calc(100dvh - 124px - 84px)}#completed-space{height:150px}}
+
+/* Tasks tab: a full task manager floating over the scene. */
+body.tasks-open :is(.intro,.sources,.scene-hint,#selection,.system-switch,.legend,#completed-preview){visibility:hidden}
+.tasks-view{position:fixed;top:72px;left:var(--edge);right:var(--edge);bottom:20px;z-index:6;display:flex;flex-direction:column;padding:18px 18px 10px;max-width:1100px;margin:0 auto}
+.tasks-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.tasks-head h2{font-size:18px;font-weight:500;margin:0}.tasks-head .note{margin-top:4px}
+.tasks-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tasks-tools input[type=text]{width:220px;margin:0}.tasks-tools .check{margin:0}
+.segmented{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}.segmented button{border:0;border-radius:0;padding:7px 11px;background:transparent;color:var(--muted)}
+.segmented button[aria-pressed=true]{background:var(--raised);color:var(--text)}
+.tasks-hint{margin:8px 0 10px}
+.tasks-body{flex:1;overflow:auto;padding-right:4px}
+.tasks-source h3{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#97a4c5;margin:16px 0 6px;font-weight:600}
+.tasks-group{border-top:1px solid #35456380}
+.group-head{display:flex;align-items:center;gap:8px;padding:6px 0}.group-head strong{flex:1;font-weight:600;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tasks-view ul{list-style:none;margin:0;padding:0}
+.tree-row{display:flex;align-items:center;gap:8px;padding:2px 0 2px calc(var(--depth) * 22px);border-radius:6px}
+.tree-row:hover{background:#1e2a4366}
+.caret{border:0;background:transparent;color:var(--muted);width:22px;height:24px;padding:0;flex-shrink:0}
+.caret::before{content:'';display:inline-block;width:5px;height:5px;border-right:1.5px solid;border-bottom:1.5px solid;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.caret[aria-expanded=false]::before{transform:rotate(-45deg)}.caret[hidden]{display:inline-block!important;visibility:hidden}
+.tree-title{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:transparent;padding:6px 4px;text-align:left}
+.tree-title:hover:not(:disabled){background:transparent}.tree-title:hover:not(:disabled) span{text-decoration:underline}
+.tree-title:disabled{opacity:1;cursor:default}
+.tree-title span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tree-meta{color:var(--muted);font-size:10px;flex-shrink:0}
+.tree-row[data-hidden=true] :is(.tree-title,.tree-meta,.pill){opacity:.42}.tree-row[data-hidden=true] .tree-title span{text-decoration:line-through}
+.eye{flex-shrink:0;min-width:62px}
+.hidden-note{font-size:11px;margin:0 0 6px 10px}

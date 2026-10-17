@@ -176,6 +176,27 @@ impl Service {
         task.state = state;
         self.commit(&mut runtime, saved, true)
     }
+    // Several ids at once so "hide subtasks" is a single save and a single snapshot.
+    pub fn set_hidden(&self, ids: &[String], hidden: bool) -> Result<Snapshot, String> {
+        let mut runtime = self.runtime.lock().unwrap();
+        let mut saved = runtime.saved.clone();
+        let active: Vec<String> = saved.active_accounts.values().cloned().collect();
+        let mut found = 0;
+        for account in active {
+            if let Some(account) = saved.accounts.get_mut(&account) {
+                for id in ids {
+                    if let Some(task) = account.tasks.get_mut(id) {
+                        task.hidden = hidden;
+                        found += 1;
+                    }
+                }
+            }
+        }
+        if found == 0 {
+            return Err("These tasks are no longer in an active account.".into());
+        }
+        self.commit(&mut runtime, saved, true)
+    }
     pub fn save_preferences(&self, preferences: Preferences) -> Result<Snapshot, String> {
         preferences.validate()?;
         let mut runtime = self.runtime.lock().unwrap();

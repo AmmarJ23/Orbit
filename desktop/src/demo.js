@@ -17,6 +17,8 @@ export function createDemoRepository() {
   const snapshot = { mode: 'demo', revision: 0, preferences: { ...defaultPreferences }, sources: {},
     tasks: specs.map(([title, source, state, radius, color, angle, speed], i) => ({
       id: `demo:${i + 1}`, externalId: String(i + 1), title, source, state, seed: i + 19,
+      // Echo and Solace are ClickUp subtasks of Mira, so the Tasks tab shows nesting.
+      parentId: ['Echo', 'Solace'].includes(title) ? 'demo:4' : null,
       upstreamPresent: true, project: 'Animation testing', priority: null, url: null,
       appearance: { radius, color, angle, speed },
     })) };
@@ -34,6 +36,10 @@ export function createDemoRepository() {
       if (!task) throw new Error('Sample planet not found.');
       task.completedFrom = state === 'completed' ? task.state : null;
       task.state = state;
+      return publish(true);
+    },
+    async setHidden(ids, hidden) {
+      for (const task of snapshot.tasks) if (ids.includes(task.id)) task.hidden = hidden;
       return publish(true);
     },
     async savePreferences(preferences) { snapshot.preferences = { ...preferences }; return publish(false); },

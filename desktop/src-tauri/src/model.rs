@@ -52,6 +52,9 @@ pub struct Task {
     pub completed_from: Option<OrbitState>,
     pub upstream_present: bool,
     pub seed: u32,
+    // Private display choice: off the scene until revealed. Syncs never change it.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 // Camera move between the active and completed systems (desktop/src/travel.js).
@@ -262,6 +265,7 @@ pub fn reconcile(account: &mut Account, imported: Vec<ImportedTask>, now: u64) {
                     state: OrbitState::NotStarted,
                     completed_from: None,
                     upstream_present: true,
+                    hidden: false,
                 },
             );
         }

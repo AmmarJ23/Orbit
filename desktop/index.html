@@ -5,7 +5,7 @@
 <canvas id="space" aria-label="Interactive low-poly planetary system. Drag to rotate, scroll to zoom, click a planet or the station."></canvas>
 <header>
   <div class="brand"><img src="/src/assets/orbit-lockup-horizontal-dark.svg" alt="Orbit" width="120" height="47"></div>
-  <nav class="nav-tabs" aria-label="Views"><button type="button" aria-current="page">Overview</button><button type="button" disabled title="Coming soon">Tasks</button><button type="button" disabled title="Coming soon">Notes</button></nav>
+  <nav class="nav-tabs" aria-label="Views"><button type="button" data-view="overview" aria-current="page">Overview</button><button type="button" data-view="tasks" aria-controls="tasks-view">Tasks</button><button type="button" disabled title="Coming soon">Notes</button></nav>
   <!-- demo:start -->
   <button type="button" id="new-task" class="primary">+ New task</button>
   <!-- demo:end -->
@@ -28,6 +28,7 @@
       <!-- live:start -->
       <button type="button" id="open-connect" class="primary" hidden>Connect Redmine</button>
       <!-- live:end -->
+      <button type="button" class="link hidden-note" id="redmine-hidden" data-manage hidden></button>
       <ul class="task-list" id="task-list" aria-label="Redmine tasks"></ul>
     </div>
   </section>
@@ -42,6 +43,7 @@
       <!-- live:start -->
       <button type="button" id="clickup-open-connect" class="primary" hidden>Connect ClickUp</button>
       <!-- live:end -->
+      <button type="button" class="link hidden-note" id="clickup-hidden" data-manage hidden></button>
       <ul class="task-list" id="clickup-list" aria-label="ClickUp tasks"></ul>
     </div>
   </section>
@@ -156,7 +158,21 @@
 </dialog>
 <!-- demo:end -->
 
-<div id="task-menu" class="glass task-menu" role="menu" hidden><button type="button" role="menuitem" data-action="orbit">Enter orbit</button><button type="button" role="menuitem" data-action="complete">Complete</button><button type="button" role="menuitem" data-action="open">Open task →</button></div>
+<section id="tasks-view" class="glass tasks-view" aria-labelledby="tasks-title" hidden>
+  <div class="tasks-head">
+    <div><h2 id="tasks-title">Tasks</h2><p id="tasks-summary" class="note" role="status"></p></div>
+    <div class="tasks-tools">
+      <input id="tasks-search" type="text" placeholder="Search tasks" aria-label="Search tasks" spellcheck="false" autocomplete="off">
+      <div id="tasks-filter" class="segmented" role="group" aria-label="Source"><button type="button" data-filter="all" aria-pressed="true">All</button><button type="button" data-filter="Redmine" aria-pressed="false">Redmine</button><button type="button" data-filter="ClickUp" aria-pressed="false">ClickUp</button></div>
+      <label class="check"><input id="tasks-show-hidden" type="checkbox" checked> Show hidden</label>
+    </div>
+  </div>
+  <p class="note tasks-hint">Hidden tasks stay out of the scene and the side cards until you show them again, even after syncs. Orbit never changes them in Redmine or ClickUp.</p>
+  <div id="tasks-body" class="tasks-body"></div>
+  <p id="tasks-empty" class="task-empty" hidden></p>
+</section>
+
+<div id="task-menu" class="glass task-menu" role="menu" hidden><button type="button" role="menuitem" data-action="orbit">Enter orbit</button><button type="button" role="menuitem" data-action="complete">Complete</button><button type="button" role="menuitem" data-action="open">Open task →</button><button type="button" role="menuitem" data-action="hide">Hide from scene</button></div>
 
 <aside id="completed-preview" class="glass" hidden aria-label="Completed system preview"><div class="completion-heading"><span class="eyebrow">COMPLETED SYSTEM</span><span class="completion-mark">↗</span></div><canvas id="completed-space" aria-label="Dust spirals outward and reassembles into completed planets."></canvas><p id="completion-caption" role="status"></p><p class="completion-legend">Redmine · inner orbit &nbsp; / &nbsp; ClickUp · outer orbit</p></aside>
 <div id="error" hidden role="alert"></div><script type="module" src="/src/scene.js"></script>

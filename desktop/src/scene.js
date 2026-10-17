@@ -8,11 +8,13 @@ import { createFramePacer } from './frame-pacer.js';
 import { connectVisibility, isFullscreen, toggleFullscreen, reportRendering, desktop, onOpenSettings } from './platform.js';
 import { createAppController } from './app-controller.js';
 import { createAppUI, setupSettingsTabs } from './app-ui.js';
+import { createTasksView } from './tasks-view.js';
 
 const DEMO = import.meta.env.VITE_ORBIT_DEMO === 'true';
 document.body.dataset.mode = DEMO ? 'demo' : 'live';
 let controller;
 let ui;
+let tasksView;
 const taskPlanets = new Map();
 const busyTasks = new Set();
 
@@ -949,7 +951,9 @@ function spawnTask(task, animate) {
   return planet;
 }
 function applySnapshot(snapshot, { settle, animate }) {
-  const ids = new Set(snapshot.tasks.map(task => task.id));
+  // Hidden tasks have no planet; revealing one forms it again like a new arrival.
+  const sceneTasks = snapshot.tasks.filter(task => !task.hidden);
+  const ids = new Set(sceneTasks.map(task => task.id));
   for (const [id, planet] of taskPlanets) {
     if (ids.has(id)) continue;
     if (selected === planet) select(null);
@@ -958,7 +962,7 @@ function applySnapshot(snapshot, { settle, animate }) {
     planet.userData.label.remove(); planet.geometry.dispose(); planet.material.dispose();
     planets.splice(planets.indexOf(planet), 1); taskPlanets.delete(id);
   }
-  for (const task of snapshot.tasks) {
+  for (const task of sceneTasks) {
     let planet = taskPlanets.get(task.id);
     if (!planet) { spawnTask(task, animate && !settle); continue; }
     const data = planet.userData;
@@ -990,16 +994,17 @@ function applySnapshot(snapshot, { settle, animate }) {
   depthLayer.visible = depth; foreground.visible = depth; $('depth').checked = depth;
   // Pulse the station until at least one source is connected.
   stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);
-  lastTasks = snapshot.tasks;
+  lastTasks = sceneTasks;
   updateEmptyScene();
   if (renderer.getPixelRatio() !== preferences.resolution) { renderer.setPixelRatio(preferences.resolution); resize(); }
   $('labels-toggle').setAttribute('aria-pressed', String(showLabels));
   $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
   $('speed').value = speed; $('speed-value').textContent = speed.toFixed(1) + '×';
   $('frame-limit').value = frameLimit; $('resolution').value = preferences.resolution; $('stars').checked = preferences.stars;
-  ui.render(snapshot); refreshSelection(); updateLabels();
+  ui.render(snapshot); tasksView.render(snapshot); refreshSelection(); updateLabels();
 }
-ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem });
+tasksView = createTasksView({ controller: () => controller, focusTask });
+ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem, openTasks: () => tasksView.open() });
 for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
 async function boot() {
   let repository;
