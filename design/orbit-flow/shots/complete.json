@@ -1,0 +1,1 @@
+[["wait",1200],["key","p"],["key","p"],["eval","window.__orbit.balls.filter(b=>b.state==='orbit').length"],["key","c"],["sheet","shots/complete-sheet.png",900,16,null,0.6,null,4],["eval","window.__orbit.balls.map(b=>b.state).join(',')"]]

@@ -1,0 +1,537 @@
+diff --git a/prototype/planetary-animation/README.md b/prototype/planetary-animation/README.md
+index 70ebc2e..1f94c64 100644
+--- a/prototype/planetary-animation/README.md
++++ b/prototype/planetary-animation/README.md
+@@ -31,3 +31,14 @@ Arrival refinement: dust fades in over 0.6 simulation seconds. After the 3.5-sec
+ Select a planet and choose **Complete task**. Its orbit contracts through a half-turn (4.8 seconds). A continuous deformation stretches its original coloured surface into a long, tapered debris ribbon; fine grains sample the original body volume and follow the same deformation. The leading end curls around the centre while the outer material extends away. Once the ribbon has formed, grains continue along its curve into one shared entrance at the centre, without a pause or separate radial shortcuts. The handoff preserves motion while the curve settles, and absorption lasts until the last grain has travelled through the tip (about 20.5 seconds for the full disruption). Temporary surface and dust resources are disposed after absorption. The shared **Completed system** glimpse then shows outward dust travel (3.6 seconds), original planet reassembly (3.5 seconds), and a settled hold/close (2.25 seconds). Total: about 35 seconds at normal speed. The Suisei palette and placeholder centre remain.
+ 
+ **Complete active planets** in Testing menu exercises simultaneous journeys. Redmine keeps the inner ring; ClickUp keeps the outer ring. Completed planets stay in the in-memory completed scene and disappear from active picking. Pause/speed and visibility suspension apply to both scenes. Transfers, formation and repeated completion cannot overlap on the same planet. Temporary dust geometry/materials are disposed, and the preview renderer draws only while its window is visible. No external tasks are updated; refresh resets the study. Full completed-system navigation remains outside this animation prototype.
++
++## Proposed layout (design variant)
++
++The header switch compares **Current** (rings by source: Redmine inner, ClickUp outer) with **Proposed** (the default):
++
++- Rings mean urgency: `01 Today` (includes overdue), `02 This week`, `03 Later`. Closer to the centre means due sooner. The dashed waiting ring is unchanged.
++- Colour shows source (Redmine blue, ClickUp teal); size shows priority; overdue planets get a coral ring.
++- Active planets carry persistent labels (name + due). The header **Labels** toggle turns them off; hover or selection still shows a planet's label. Waiting planets are labelled on hover or selection. Labels are placed most-urgent first, and any that would overlap another label, a ring name or a panel are skipped.
++- The asteroid belt is dimmer so waiting tasks stand out; the intro shows live counts; the centre brightens slightly with each completed task.
++- Switching layouts re-routes every settled active planet to its new ring with the existing curved transfer. Transfers choose a sweep that lands in the clearest gap, so planets sharing a ring do not stack.
++- The Testing menu form has a **Due** field. The completed-system glimpse still groups by source.
+diff --git a/prototype/planetary-animation/index.html b/prototype/planetary-animation/index.html
+index 3994bb4..97cd00e 100644
+--- a/prototype/planetary-animation/index.html
++++ b/prototype/planetary-animation/index.html
+@@ -3,10 +3,10 @@
+ <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Orbit · Planetary study</title><link rel="stylesheet" href="/style.css"></head>
+ <body>
+ <canvas id="space" aria-label="Interactive low-poly planetary system. Drag to rotate the view."></canvas>
+-<header><div class="brand"><span class="mark">◌</span> Orbit <span class="tag">MOTION STUDY / 01</span></div><button id="fullscreen">Fullscreen ↗</button></header>
+-<section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1>Your active universe.</h1><p>Low-poly worlds. A quieter kind of motion.</p></section>
++<header><div class="brand"><span class="mark">◌</span> Orbit <span class="tag">MOTION STUDY / 01</span></div><div class="header-actions"><div class="layout-switch" role="group" aria-label="Design variant"><button type="button" data-layout="source" aria-pressed="false">Current</button><button type="button" data-layout="proposed" aria-pressed="true">Proposed</button></div><button type="button" id="labels-toggle" aria-pressed="true" title="Show task labels on active planets">Labels</button><button id="fullscreen">Fullscreen ↗</button></div></header>
++<section class="intro"><p class="eyebrow" id="intro-eyebrow">A LITTLE SPACE TO THINK</p><h1 id="intro-title">Your active universe.</h1><p id="intro-body">Low-poly worlds. A quieter kind of motion.</p></section>
+ <aside id="selection" hidden><span class="eyebrow">SELECTED WORLD</span><h2 id="planet-name"></h2><span id="planet-status" class="status" role="status"></span><p id="planet-description"></p><button id="enter-orbit" class="primary-action">Enter orbit ↗</button><p id="orbit-hint" class="orbit-hint"></p><button id="complete-planet">Complete task ↗</button><button id="clear">Clear selection</button></aside>
+-<footer><div class="legend"><span><i class="comet"></i>Redmine orbit</span><span><i class="blue"></i>ClickUp orbit</span><span><i class="grey"></i>Not started</span></div><p>Drag to rotate · Click a planet</p></footer>
++<footer><div class="legend" id="legend"><span><i class="comet"></i>Redmine orbit</span><span><i class="blue"></i>ClickUp orbit</span><span><i class="grey"></i>Not started</span></div><p>Drag to rotate · Click a planet</p></footer>
+ <details class="controls" open><summary>Testing menu <span id="fps">— fps</span></summary><div class="control-body">
+ <div class="testing-tabs" role="tablist" aria-label="Testing tools"><button id="planets-tab" type="button" role="tab" aria-selected="true" aria-controls="planets-panel">Planets</button><button id="motion-tab" type="button" role="tab" aria-selected="false" aria-controls="motion-panel" tabindex="-1">Motion & quality</button></div>
+ <section id="planets-panel" role="tabpanel" aria-labelledby="planets-tab">
+@@ -14,6 +14,7 @@
+ <p class="tool-heading">Add a planet</p>
+ <label for="new-name">Planet name</label><input id="new-name" name="name" type="text" placeholder="e.g. Review dashboard" required maxlength="60" pattern=".*\S.*" title="Enter a name with at least one non-space character." autocomplete="off">
+ <div class="pair"><label for="new-source">Source<select id="new-source" name="source"><option value="Redmine">Redmine</option><option value="ClickUp">ClickUp</option></select></label><label for="new-status">Starting state<select id="new-status" name="status"><option value="not-started">Not started</option><option value="in-progress">In progress</option></select></label></div>
++<label for="new-due">Due<select id="new-due" name="due"><option value="overdue">Overdue</option><option value="today">Today</option><option value="week" selected>This week</option><option value="later">Later</option></select></label>
+ <p class="placement-hint" id="placement-hint" aria-live="polite">Starts on the outer waiting ring. Enter orbit whenever you’re ready.</p>
+ <div class="form-actions"><button id="clear-planet-form" type="button">Clear</button><button class="create-planet" type="submit">Add planet ↗</button></div>
+ <p id="planet-added" role="status"></p><p class="prototype-note">For testing only · resets on refresh</p>
+diff --git a/prototype/planetary-animation/main.js b/prototype/planetary-animation/main.js
+index 9a5388c..b517cd9 100644
+--- a/prototype/planetary-animation/main.js
++++ b/prototype/planetary-animation/main.js
+@@ -71,16 +71,53 @@ function ring(radius, color, opacity = 0.6, dashed = false) {
+   scene.add(line);
+   return line;
+ }
+-ring(4.2, 0x79bfff, 0.8);
+-ring(7.1, 0x9de5f5, 0.7);
+-ring(9.5, 0x64789b, 0.22, true);
++// Two layouts to compare: "current" groups active tasks by source ring; "proposed"
++// groups them by urgency (closer to the centre = due sooner) and colours by source.
++const WAITING_ORBIT = 9.5;
++const SOURCE_ORBITS = { Redmine: { orbit: 4.2, speed: 0.048 }, ClickUp: { orbit: 7.1, speed: 0.03 } };
++const DUE = {
++  overdue: { ring: 'today', label: 'Overdue · 2d' },
++  today: { ring: 'today', label: 'Due today' },
++  week: { ring: 'week', label: 'This week' },
++  later: { ring: 'later', label: 'Later' },
++};
++const URGENCY_RINGS = {
++  today: { orbit: 3.5, speed: 0.07, name: 'Today', color: 0xf1c878, opacity: 0.55 },
++  week: { orbit: 5.4, speed: 0.045, name: 'This week', color: 0x79bfff, opacity: 0.5 },
++  later: { orbit: 7.3, speed: 0.03, name: 'Later', color: 0x9de5f5, opacity: 0.3 },
++};
++// Blue vs cyan, separated by value as well as hue so the two sources read apart.
++const SOURCE_COLORS = { Redmine: 0x3a7fdc, ClickUp: 0x7ee6dc };
++let layout = 'proposed';
++const sourceRings = [ring(4.2, 0x79bfff, 0.8), ring(7.1, 0x9de5f5, 0.7)];
++const urgencyRings = Object.values(URGENCY_RINGS).map(r => ring(r.orbit, r.color, r.opacity));
++ring(WAITING_ORBIT, 0x64789b, 0.22, true);
++function activeOrbit(data) {
++  return layout === 'source' ? SOURCE_ORBITS[data.source] : URGENCY_RINGS[DUE[data.due].ring];
++}
++function desiredColor(data, status = data.status) {
++  if (status === 'not-started') return data.waitColor;
++  return layout === 'source' ? data.homeColor : SOURCE_COLORS[data.source];
++}
++function tintFor(data, status) {
++  const color = new THREE.Color(desiredColor(data, status));
++  return color.setRGB(color.r / data.baseColor.r, color.g / data.baseColor.g, color.b / data.baseColor.b);
++}
++function orbitName(data) {
++  return layout === 'source'
++    ? `${data.source === 'Redmine' ? 'inner Redmine' : 'outer ClickUp'} orbit`
++    : `${URGENCY_RINGS[DUE[data.due].ring].name} orbit`;
++}
+ const core = rock(1.45, 0x1e3554, 2);
+ core.rotation.z = 0.22;
+ scene.add(core);
+ // Thin translucent annuli give the centre a halo without fullscreen bloom passes.
++const halos = [];
+ for (let i = 0; i < 4; i++) {
+   const halo = new THREE.Mesh(new THREE.RingGeometry(1.7 + i * 0.17, 1.75 + i * 0.17, 100), new THREE.MeshBasicMaterial({color: 0x79bfff, transparent: true, opacity: 0.23 - i * 0.04, side: THREE.DoubleSide, depthWrite: false}));
+   halo.rotation.x = -Math.PI / 2;
++  halo.userData.baseOpacity = halo.material.opacity;
++  halos.push(halo);
+   scene.add(halo);
+ }
+ const planets = [];
+@@ -189,33 +226,58 @@ function updateArrivalTags() {
+     arrival.tag.style.setProperty('--reveal', `${100 * (1 - THREE.MathUtils.smoothstep(reveal, 0.34, 0.56))}%`);
+   }
+ }
++// Planet size encodes priority: high .62–.76, normal .43–.58, low .29–.42.
+ const specs = [
+-  ['Lyra', 4.2, 0.62, 0x79bfff, 2.3, 0.052, 'Redmine · inner orbit'],
+-  ['Vega', 4.2, 0.43, 0x4898d9, 5.4, 0.045, 'Redmine · inner orbit'],
+-  ['Elara', 4.2, 0.29, 0xb6e1ff, 0.3, 0.058, 'Redmine · inner orbit'],
+-  ['Mira', 7.1, 0.76, 0x8ad8ed, 3.7, 0.029, 'ClickUp · outer orbit'],
+-  ['Atlas', 7.1, 0.58, 0x559bcf, 0.6, 0.034, 'ClickUp · outer orbit'],
+-  ['Nova', 7.1, 0.42, 0xa2d3ff, 5.2, 0.025, 'ClickUp · outer orbit'],
+-  ['Cinder', 9.5, 0.65, 0x64789b, 2.4, 0, 'Not started · stationary'],
+-  ['Echo', 9.5, 0.38, 0x465d7a, 0.1, 0, 'Not started · stationary'],
+-  ['Solace', 9.5, 0.53, 0x8095ac, 4.8, 0, 'Not started · stationary'],
++  ['Fix login redirect', 'Redmine', 'in-progress', 'overdue', 0.62, 0x79bfff, 2.3],
++  ['Review API permissions', 'Redmine', 'in-progress', 'week', 0.43, 0x4898d9, 5.4],
++  ['Update documentation', 'Redmine', 'in-progress', 'later', 0.29, 0xb6e1ff, 0.3],
++  ['Dashboard wireframes', 'ClickUp', 'in-progress', 'today', 0.76, 0x8ad8ed, 3.7],
++  ['Prepare release notes', 'ClickUp', 'in-progress', 'week', 0.58, 0x559bcf, 0.6],
++  ['Onboarding copy', 'ClickUp', 'in-progress', 'later', 0.42, 0xa2d3ff, 5.2],
++  ['Plan next sprint', 'Redmine', 'not-started', 'week', 0.65, 0x64789b, 2.4],
++  ['Audit error logs', 'ClickUp', 'not-started', 'later', 0.38, 0x465d7a, 0.1],
++  ['Release checklist', 'ClickUp', 'not-started', 'today', 0.53, 0x8095ac, 4.8],
+ ];
+-function createPlanet({ name, orbit, radius, color, angle, speed, source, phase = angle }) {
++const labelLayer = document.createElement('div');
++labelLayer.className = 'planet-labels';
++labelLayer.setAttribute('aria-hidden', 'true');
++canvas.after(labelLayer); // Below panels and menus in paint order.
++const overdueMaterial = new THREE.MeshBasicMaterial({ color: 0xff91a4, side: THREE.DoubleSide, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false });
++const overdueGeometry = new THREE.RingGeometry(1.32, 1.37, 64);
++function createPlanet({ name, radius, color, phase, source, status, due }) {
+   const mesh = rock(radius, color);
++  const active = status === 'in-progress';
++  const base = new THREE.Color(color);
+   mesh.userData = {
+-    name, orbit, radius, angle, speed, source,
+-    spinAngle: angle, baseColor: new THREE.Color(color),
+-    status: speed ? 'in-progress' : 'not-started', transfer: null,
++    name, radius, source, status, due, orbit: WAITING_ORBIT, speed: 0, angle: phase,
++    spinAngle: phase, baseColor: base, transfer: null,
++    homeColor: active ? base.getHex() : source === 'Redmine' ? 0x79bfff : 0xa2d3ff,
++    waitColor: active ? 0x64789b : base.getHex(),
+   };
++  if (active) {
++    const { orbit, speed } = activeOrbit(mesh.userData);
++    Object.assign(mesh.userData, { orbit, speed, angle: phase - simulationTime * speed });
++  }
++  mesh.material.color.copy(tintFor(mesh.userData, status));
+   mesh.rotation.set(random(), random(), random());
+-  mesh.position.set(Math.cos(phase) * orbit, Math.sin(phase * 2) * 0.08, Math.sin(phase) * orbit);
++  mesh.position.set(Math.cos(phase) * mesh.userData.orbit, Math.sin(phase * 2) * 0.08, Math.sin(phase) * mesh.userData.orbit);
++  // Persistent label: plain-text name plus due/state line, positioned every frame.
++  const label = document.createElement('div');
++  label.className = 'planet-label';
++  label.append(document.createElement('span'), document.createElement('small'));
++  label.firstChild.textContent = name;
++  labelLayer.append(label);
++  mesh.userData.label = label;
++  mesh.userData.overdueRing = new THREE.Mesh(overdueGeometry, overdueMaterial);
++  mesh.userData.overdueRing.visible = false;
++  scene.add(mesh.userData.overdueRing);
+   planets.push(mesh);
+   scene.add(mesh);
+   return mesh;
+ }
+-for (const [name, orbit, radius, color, angle, speed] of specs) {
+-  const source = orbit === 4.2 || name === 'Cinder' ? 'Redmine' : 'ClickUp';
+-  createPlanet({ name, orbit, radius, color, angle, speed, source });
++let simulationTime = 0;
++for (const [name, source, status, due, radius, color, phase] of specs) {
++  createPlanet({ name, source, status, due, radius, color, phase });
+ }
+ const dustGeometry = new THREE.IcosahedronGeometry(0.08, 0);
+ const dustMesh = new THREE.InstancedMesh(dustGeometry, new THREE.MeshStandardMaterial({color: 0x354563, roughness: 1, flatShading: true}), 110);
+@@ -251,8 +313,9 @@ selectionRing.visible = false;
+ scene.add(selectionRing);
+ 
+ let paused = false;
+-let simulationTime = 0;
+ let selected = null;
++let hovered = null;
++let showLabels = true; // Off: labels appear only on hover or selection.
+ let speed = 1;
+ let frameLimit = 60;
+ const completionSystem = createCompletionSystem({ scene, rock, random, onChange: planet => {
+@@ -284,13 +347,14 @@ $('clear-planet-form').onclick = () => {
+ };
+ function updatePlacementHint() {
+   const active = $('new-status').value === 'in-progress';
+-  const source = $('new-source').value;
++  const draft = { source: $('new-source').value, due: $('new-due').value };
+   $('placement-hint').textContent = active
+-    ? `Starts in the ${source === 'Redmine' ? 'inner Redmine' : 'outer ClickUp'} orbit.`
++    ? `Starts in the ${orbitName(draft)}.`
+     : 'Starts on the outer waiting ring. Enter orbit whenever you’re ready.';
+ }
+ $('new-source').onchange = updatePlacementHint;
+ $('new-status').onchange = updatePlacementHint;
++$('new-due').onchange = updatePlacementHint;
+ function findOpenPhase(orbit) {
+   const fullCircle = Math.PI * 2;
+   const angles = planets
+@@ -315,18 +379,16 @@ $('planet-form').onsubmit = event => {
+   const name = $('new-name').value.trim();
+   if (!name) return;
+   const source = $('new-source').value;
+-  const active = $('new-status').value === 'in-progress';
+-  const orbit = active ? source === 'Redmine' ? 4.2 : 7.1 : 9.5;
+-  const orbitalSpeed = active ? source === 'Redmine' ? 0.048 : 0.03 : 0;
+-  const phase = findOpenPhase(orbit);
++  const due = $('new-due').value;
++  const status = $('new-status').value;
++  const active = status === 'in-progress';
++  const phase = findOpenPhase(active ? activeOrbit({ source, due }).orbit : WAITING_ORBIT);
+   const planet = createPlanet({
+-    name, source, orbit, phase,
++    name, source, status, due, phase,
+     radius: 0.38 + random() * 0.2,
+     color: active ? source === 'Redmine' ? 0x79bfff : 0xa2d3ff : 0x64789b,
+-    angle: phase - simulationTime * orbitalSpeed,
+-    speed: orbitalSpeed,
+   });
+-  $('planet-added').textContent = `Added ${name} · ${source} · ${active ? 'In progress' : 'Not started'}`;
++  $('planet-added').textContent = `Added ${name} · ${source} · ${active ? 'In progress' : 'Not started'} · ${DUE[due].label}`;
+   $('new-name').value = '';
+   beginFormation(planet);
+   select(planet);
+@@ -342,10 +404,11 @@ function select(planet) {
+ }
+ function refreshSelection() {
+   if (!selected) return;
+-  const { name, source, status, transfer, forming, completion } = selected.userData;
++  const { name, source, status, transfer, forming, completion, due } = selected.userData;
+   const isWaiting = status === 'not-started';
+   const isLeaving = transfer?.kind === 'out';
+   const destination = source === 'Redmine' ? 'inner' : 'outer';
++  const ringName = orbitName(selected.userData);
+   $('planet-name').textContent = name;
+   $('complete-planet').disabled = !!forming || !!transfer || !!completion || status === 'completed';
+   $('complete-planet').textContent = completion ? 'Completing…' : status === 'completed' ? 'Completed ✓' : 'Complete task ↗';
+@@ -357,43 +420,72 @@ function refreshSelection() {
+     $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Approaching the centre'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit.`;
+     return;
+   }
+-  $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
++  const isShifting = transfer?.kind === 'shift';
++  $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : isShifting ? 'Changing orbit' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
+   $('planet-status').classList.toggle('active', !isWaiting);
+-  $('planet-description').textContent = `${source} · ${isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`}`;
++  const place = isLeaving ? 'Returning to the waiting ring' : isWaiting ? `Awaiting orbital insertion · ${DUE[due].label}` : layout === 'source' ? `${destination[0].toUpperCase() + destination.slice(1)} orbit` : DUE[due].label;
++  $('planet-description').textContent = `${source} · ${place}`;
+   $('enter-orbit').disabled = !!transfer || !!forming;
+-  $('enter-orbit').textContent = forming ? 'Forming planet…' : transfer ? isLeaving ? 'De-orbiting…' : 'Entering orbit…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
++  $('enter-orbit').textContent = forming ? 'Forming planet…' : transfer ? isLeaving ? 'De-orbiting…' : isShifting ? 'Changing orbit…' : 'Entering orbit…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
+   $('orbit-hint').textContent = forming
+     ? `Dust is gathering into a new world${paused ? ' · motion paused' : '…'}`
+     : transfer
+-    ? `${isLeaving ? 'Slowing into the outer waiting ring' : `Moving into the ${source} orbit`}${paused ? ' · motion paused' : '…'}`
++    ? `${isLeaving ? 'Slowing into the outer waiting ring' : `Moving into the ${ringName}`}${paused ? ' · motion paused' : '…'}`
+     : isWaiting
+-      ? `Start this sample task and join the ${destination} orbit.`
++      ? `Start this sample task and join the ${ringName}.`
+       : 'Return this sample task to not started and coast into the outer waiting ring.';
+ }
+ $('enter-orbit').onclick = () => {
+   if (!selected || selected.userData.transfer || selected.userData.forming || selected.userData.completion || selected.userData.status === 'completed') return;
+-  const data = selected.userData;
+-  const leaving = data.status === 'in-progress';
+-  const targetOrbit = leaving ? 9.5 : data.source === 'Redmine' ? 4.2 : 7.1;
+-  const orbitalSpeed = leaving ? 0 : data.source === 'Redmine' ? 0.048 : 0.03;
+-  const targetColor = new THREE.Color(leaving ? 0x64789b : data.source === 'Redmine' ? 0x79bfff : 0xa2d3ff);
++  startTransfer(selected, selected.userData.status === 'in-progress' ? 'out' : 'in');
++  refreshSelection();
++};
++const TRANSFER_DURATION = 6;
++// Arrival angle of every body on a ring once a transfer of the given length ends.
++function arrivalPhases(orbit, except) {
++  return planets.filter(p => p !== except && !p.userData.completion && p.userData.status !== 'completed').flatMap(p => {
++    const d = p.userData;
++    if (d.transfer) {
++      if (d.transfer.targetOrbit !== orbit) return [];
++      // It lands in (duration - elapsed) seconds, then orbits for the remaining elapsed seconds.
++      return [d.transfer.fromPhase + d.transfer.sweep + d.transfer.elapsed * d.speed];
++    }
++    return d.orbit === orbit ? [d.angle + (simulationTime + TRANSFER_DURATION) * d.speed] : [];
++  });
++}
++// Choose a sweep near the preferred 72 degrees that lands in the clearest gap,
++// so planets sharing a ring at equal angular speed never stack on each other.
++function chooseSweep(fromPhase, orbit, except) {
++  const occupied = arrivalPhases(orbit, except);
++  let best = Math.PI / 2.5;
++  let bestScore = -Infinity;
++  for (let sweep = 0.6; sweep <= 2.4; sweep += 0.04) {
++    const end = fromPhase + sweep; // Both tangent terms vanish on arrival.
++    const clearance = occupied.length
++      ? Math.min(...occupied.map(a => Math.abs(Math.atan2(Math.sin(end - a), Math.cos(end - a)))))
++      : Math.PI;
++    const score = Math.min(clearance, 1.2) - Math.abs(sweep - Math.PI / 2.5) * 0.08;
++    if (score > bestScore) { bestScore = score; best = sweep; }
++  }
++  return best;
++}
++// kind: 'in' (waiting → active), 'out' (active → waiting), 'shift' (active ring change).
++function startTransfer(planet, kind) {
++  const data = planet.userData;
++  const targetStatus = kind === 'out' ? 'not-started' : 'in-progress';
++  const target = kind === 'out' ? { orbit: WAITING_ORBIT, speed: 0 } : activeOrbit(data);
+   const fromPhase = data.angle + simulationTime * data.speed;
+   const fromSpeed = data.speed;
+-  data.speed = orbitalSpeed;
++  const sweep = kind === 'out' ? Math.PI / 2.5 : chooseSweep(fromPhase, target.orbit, planet);
++  data.speed = target.speed;
+   data.status = 'in-progress';
+   data.transfer = {
+-    fromOrbit: data.orbit, targetOrbit, fromPhase, fromSpeed,
+-    kind: leaving ? 'out' : 'in', targetStatus: leaving ? 'not-started' : 'in-progress',
+-    sweep: Math.PI / 2.5, elapsed: 0, duration: 6,
+-    fromTint: selected.material.color.clone(),
+-    targetTint: new THREE.Color().setRGB(
+-      targetColor.r / data.baseColor.r,
+-      targetColor.g / data.baseColor.g,
+-      targetColor.b / data.baseColor.b,
+-    ),
++    fromOrbit: data.orbit, targetOrbit: target.orbit, fromPhase, fromSpeed,
++    kind, targetStatus, sweep, elapsed: 0, duration: TRANSFER_DURATION,
++    fromTint: planet.material.color.clone(),
++    targetTint: tintFor(data, targetStatus),
+   };
+-  refreshSelection();
+-};
++}
+ $('complete-planet').onclick = () => {
+   if (!selected) return;
+   // A lingering arrival tag must not follow a planet into its completion journey.
+@@ -413,15 +505,132 @@ $('complete-active').onclick = () => {
+ const raycaster = new THREE.Raycaster();
+ const pointer = new THREE.Vector2();
+ let down = null;
++const pickable = () => planets.filter(planet => planet.visible && !planet.userData.completion && planet.userData.status !== 'completed');
+ canvas.addEventListener('pointerdown', e => { down = {x:e.clientX, y:e.clientY}; });
++// Hover reveals labels for waiting planets, which stay unlabelled to keep the outer ring quiet.
++canvas.addEventListener('pointermove', e => {
++  if (e.buttons) return;
++  pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
++  raycaster.setFromCamera(pointer,camera);
++  hovered = raycaster.intersectObjects(pickable())[0]?.object ?? null;
++  canvas.style.cursor = hovered ? 'pointer' : '';
++});
++canvas.addEventListener('pointerleave', () => { hovered = null; });
+ canvas.addEventListener('pointerup', e => {
+   if (!down || Math.hypot(e.clientX-down.x,e.clientY-down.y)>5) return;
+   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
+   raycaster.setFromCamera(pointer,camera);
+-  select(raycaster.intersectObjects(planets.filter(planet => planet.visible && !planet.userData.completion && planet.userData.status !== 'completed'))[0]?.object ?? null);
++  select(raycaster.intersectObjects(pickable())[0]?.object ?? null);
+   down = null;
+ });
+ $('clear').onclick = () => select(null);
++const ringLabels = [...Object.entries(URGENCY_RINGS).map(([key, r], i) => [r.orbit, `0${i + 1}  ${r.name}`, key]), [WAITING_ORBIT, 'Waiting', 'waiting']]
++  .map(([orbit, text, key]) => {
++    const el = document.createElement('span');
++    el.className = `ring-label ring-${key}`;
++    el.textContent = text;
++    labelLayer.append(el);
++    return { orbit, el };
++  });
++const intro = { eyebrow: $('intro-eyebrow').textContent, title: $('intro-title').textContent, body: $('intro-body').textContent };
++const legend = $('legend').innerHTML;
++function updateSummary() {
++  if (layout === 'source') return;
++  const live = planets.filter(p => !p.userData.completion && p.userData.status !== 'completed');
++  const active = live.filter(p => p.userData.status === 'in-progress' && p.userData.transfer?.kind !== 'out');
++  const overdue = active.filter(p => p.userData.due === 'overdue').length;
++  const today = active.filter(p => p.userData.due === 'today').length;
++  const done = planets.length - live.length;
++  $('intro-title').textContent = `${active.length} in orbit`;
++  // Fixed markup only; counts are numbers.
++  $('intro-body').innerHTML = `<b class="overdue">${overdue} overdue</b> · <b class="today">${today} due today</b> · ${live.length - active.length} waiting${done ? ` · ${done} done` : ''}`;
++}
++function setLayout(next) {
++  layout = next;
++  for (const button of document.querySelectorAll('.layout-switch button')) button.setAttribute('aria-pressed', String(button.dataset.layout === next));
++  const proposed = next === 'proposed';
++  document.body.classList.toggle('proposed', proposed);
++  sourceRings.forEach(line => { line.visible = !proposed; });
++  urgencyRings.forEach(line => { line.visible = proposed; });
++  // Quieter belt so waiting tasks are not lost among decorative rocks.
++  dustMesh.material.color.setHex(proposed ? 0x1f2a40 : 0x354563);
++  for (const planet of planets) {
++    if (planet.userData.status === 'not-started' && !planet.userData.transfer) planet.material.color.copy(tintFor(planet.userData, 'not-started'));
++  }
++  $('intro-eyebrow').textContent = proposed ? 'TODAY · CLOSER IN MEANS SOONER' : intro.eyebrow;
++  if (proposed) updateSummary();
++  else { $('intro-title').textContent = intro.title; $('intro-body').textContent = intro.body; }
++  // Fixed markup only.
++  $('legend').innerHTML = proposed
++    ? '<span><i class="redmine"></i>Redmine</span><span><i class="clickup"></i>ClickUp</span><span><i class="grey"></i>Waiting</span><span><i class="overdue-dot"></i>Overdue</span><span>Size = priority</span>'
++    : legend;
++  updatePlacementHint();
++  refreshSelection();
++}
++for (const button of document.querySelectorAll('.layout-switch button')) button.onclick = () => setLayout(button.dataset.layout);
++$('labels-toggle').onclick = () => { showLabels = !showLabels; $('labels-toggle').setAttribute('aria-pressed', String(showLabels)); updateLabels(); };
++const labelOrder = { overdue: 0, today: 1, week: 2, later: 3 };
++const placedRects = [];
++const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
++// Panels are translucent, so labels must not slide underneath them. Re-read a few times a second.
++let panelRects = [];
++let panelRectsAt = -Infinity;
++function readPanelRects() {
++  panelRects = [...document.querySelectorAll('header .brand, .header-actions, .intro, footer, #selection:not([hidden]), .controls, #completed-preview:not([hidden])')]
++    .map(el => { const r = el.getBoundingClientRect(); return { x: r.left - 8, y: r.top - 8, w: r.width + 16, h: r.height + 16 }; });
++  panelRectsAt = performance.now();
++}
++function updateLabels() {
++  if (performance.now() - panelRectsAt > 250) readPanelRects();
++  const proposed = layout === 'proposed';
++  const pixelsPerUnit = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) * camera.zoom;
++  // Ring names sit just right of the ring's nearest point to the camera.
++  placedRects.length = 0;
++  const facing = Math.atan2(camera.position.z, camera.position.x) - 0.32;
++  for (const { orbit, el } of ringLabels) {
++    el.hidden = !proposed;
++    if (!proposed) continue;
++    projected.set(Math.cos(facing) * orbit, 0, Math.sin(facing) * orbit).project(camera);
++    el.dataset.width ||= el.offsetWidth;
++    const rect = { x: (projected.x * 0.5 + 0.5) * innerWidth + 8, y: (-projected.y * 0.5 + 0.5) * innerHeight - 6, w: Number(el.dataset.width), h: 12 };
++    el.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
++    placedRects.push(rect);
++  }
++  const candidates = [];
++  for (const planet of planets) {
++    const data = planet.userData;
++    const hidden = !proposed || data.completion || data.status === 'completed' || data.forming || arrivals.has(planet);
++    const waiting = data.status === 'not-started' || data.transfer?.kind === 'out';
++    data.overdueRing.visible = proposed && !hidden && !waiting && data.due === 'overdue';
++    if (data.overdueRing.visible) {
++      data.overdueRing.position.copy(planet.position);
++      data.overdueRing.quaternion.copy(camera.quaternion);
++      data.overdueRing.scale.setScalar(data.radius);
++    }
++    const focus = planet === selected || planet === hovered;
++    if (hidden || ((waiting || !showLabels) && !focus)) { data.label.hidden = true; continue; }
++    projected.copy(planet.position).project(camera);
++    if (projected.z > 1) { data.label.hidden = true; continue; }
++    const distance = camera.position.distanceTo(planet.position);
++    candidates.push({ planet, focus, x: (projected.x * 0.5 + 0.5) * innerWidth, y: (-projected.y * 0.5 + 0.5) * innerHeight, offset: data.radius * pixelsPerUnit / distance + 8 });
++  }
++  // Greedy placement: focused planets first, then by urgency; overlapping labels are dropped.
++  candidates.sort((a, b) => (b.focus - a.focus) || labelOrder[a.planet.userData.due] - labelOrder[b.planet.userData.due]);
++  for (const { planet, focus, x, y, offset } of candidates) {
++    const { label, due, status, transfer } = planet.userData;
++    const meta = status === 'not-started' || transfer?.kind === 'out' ? `Waiting · ${DUE[due].label}` : DUE[due].label;
++    if (label.lastChild.textContent !== meta) label.lastChild.textContent = meta;
++    label.dataset.due = due;
++    label.classList.toggle('focus', focus);
++    label.hidden = false;
++    // Measure only when the text changes; reading layout every frame is wasteful.
++    if (planet.userData.labelKey !== meta) { planet.userData.labelKey = meta; planet.userData.labelWidth = label.offsetWidth; }
++    const rect = { x: x + offset, y: y - 15, w: planet.userData.labelWidth, h: 32 };
++    if (panelRects.some(r => overlaps(rect, r)) || (!focus && placedRects.some(r => overlaps(rect, r)))) { label.hidden = true; continue; }
++    placedRects.push(rect);
++    label.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
++  }
++}
+ $('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume motion' : 'Pause motion'; refreshSelection(); };
+ $('reset').onclick = () => { controls.reset(); select(null); };
+ $('speed').oninput = e => { speed = Number(e.target.value); $('speed-value').textContent = `${speed.toFixed(1)}×`; };
+@@ -451,6 +660,11 @@ function updateScene(delta) {
+   for (const planet of planets) {
+     const data = planet.userData;
+     if (data.completion || data.status === 'completed') continue;
++    // A layout switch re-routes settled active planets to their new ring.
++    if (data.status === 'in-progress' && !data.transfer && !data.forming && data.orbit !== activeOrbit(data).orbit) {
++      startTransfer(planet, 'shift');
++      if (planet === selected) refreshSelection();
++    }
+     let phase = data.angle + simulationTime * data.speed;
+     if (data.transfer) {
+       const transfer = data.transfer;
+@@ -478,6 +692,11 @@ function updateScene(delta) {
+     planet.position.set(Math.cos(phase)*orbit,Math.sin(phase*2)*0.08,Math.sin(phase)*orbit);
+     planet.rotation.y = data.spinAngle + simulationTime*0.09;
+   }
++  // Proposed: the centre brightens a little with each task completed.
++  const done = layout === 'proposed' ? planets.filter(p => p.userData.completion || p.userData.status === 'completed').length : 0;
++  const glow = 1 + Math.min(done, 6) * 0.18;
++  coreLight.intensity += (28 * glow - coreLight.intensity) * Math.min(1, delta * 2);
++  for (const halo of halos) halo.material.opacity = halo.userData.baseOpacity * (coreLight.intensity / 28);
+   if (selected) {
+     selectionRing.visible = selected.visible && selected.userData.status !== 'completed';
+     selectionRing.position.copy(selected.position);
+@@ -500,16 +719,19 @@ function animate(now) {
+   completionSystem.update(Math.min(elapsed/1000,0.1), paused, speed);
+   controls.update();
+   updateArrivalTags();
++  updateLabels();
+   renderer.render(scene,camera);
+   completionSystem.render(renderer.getPixelRatio());
+   frames++;
+   if (now-statsStart >= 1000) {
+     $('fps').textContent = `${Math.round(frames*1000/(now-statsStart))} fps`;
++    updateSummary();
+     $('stats').textContent = `${renderer.info.render.calls} draw calls · ${renderer.info.render.triangles.toLocaleString()} triangles`;
+     frames = 0;
+     statsStart = now;
+   }
+ }
++setLayout(layout);
+ updateScene(0);
+ raf = requestAnimationFrame(animate);
+ document.addEventListener('visibilitychange', () => {
+diff --git a/prototype/planetary-animation/style.css b/prototype/planetary-animation/style.css
+index 80b7c98..e99441c 100644
+--- a/prototype/planetary-animation/style.css
++++ b/prototype/planetary-animation/style.css
+@@ -8,3 +8,11 @@
+ @media(min-width:701px){body:has(#selection:not([hidden])) .controls[open] .control-body{max-height:280px}}
+ 
+ @media(max-width:700px){#completed-preview{top:190px;bottom:auto}#completed-space{height:160px}body:has(#completed-preview:not([hidden])) .controls[open] .control-body{max-height:160px}body:has(#completed-preview:not([hidden])) #selection{visibility:hidden}}
++
++.header-actions{display:flex;gap:10px;align-items:center}.layout-switch{display:flex;gap:4px;padding:4px;background:#151e32d9;border:1px solid #354563;border-radius:10px}.layout-switch button{border:0;background:transparent;padding:7px 12px;font-size:11px;color:#a6b5cf}.layout-switch button[aria-pressed=true]{background:#1e2a43;color:#a2d3ff}#labels-toggle{color:#a6b5cf}#labels-toggle[aria-pressed=true]{color:#a2d3ff;border-color:#79bfff}body:not(.proposed) #labels-toggle{display:none}
++#intro-body b{font-weight:500}#intro-body .overdue{color:#ff91a4}#intro-body .today{color:#f1c878}body.proposed h1{font-variant-numeric:tabular-nums}
++.planet-labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}.planet-label{position:absolute;top:0;left:0;padding-left:9px;border-left:1px solid #79bfff99;white-space:nowrap;max-width:190px;will-change:transform}.planet-label[hidden]{display:none}.planet-label span{display:block;overflow:hidden;text-overflow:ellipsis;font:11px/15px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.3px;color:#e3f1ff;text-shadow:0 1px 5px #0c1222,0 0 8px #0c1222}.planet-label small{display:block;font-size:10px;line-height:15px;color:#a6b5cf;text-shadow:0 1px 5px #0c1222}.planet-label[data-due=overdue]{border-left-color:#ff91a4}.planet-label[data-due=overdue] small{color:#ff91a4}.planet-label[data-due=today]{border-left-color:#f1c878}.planet-label[data-due=today] small{color:#f1c878}.planet-label.focus span{color:#fff}
++.ring-label{position:absolute;top:0;left:0;font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1.6px;text-transform:uppercase;color:#7f91b3;white-space:pre;text-shadow:0 1px 4px #0c1222}.ring-label[hidden]{display:none}.ring-today{color:#f1c878}.ring-week{color:#79bfff}.ring-later{color:#9de5f5;opacity:.8}.ring-waiting{color:#64789b}
++.redmine{background:#3a7fdc;box-shadow:0 0 10px #3a7fdc}.clickup{background:#7ee6dc;box-shadow:0 0 10px #7ee6dc}.overdue-dot{width:8px;height:8px;border:1px solid #ff91a4;background:transparent}
++@media(max-width:700px){.layout-switch button{padding:6px 8px}#fullscreen{display:none}.planet-label{max-width:130px}}
++#planet-form>label[for=new-due]{margin-top:14px}
