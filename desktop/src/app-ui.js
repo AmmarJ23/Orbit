@@ -181,6 +181,8 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     menu.querySelector('[data-action=orbit]').textContent = task.state === 'in-progress' ? 'Return to waiting ring' : 'Enter orbit';
     menu.querySelector('[data-action=orbit]').hidden = task.state === 'completed';
     menu.querySelector('[data-action=complete]').hidden = task.state === 'completed';
+    menu.querySelector('[data-action=reopen]').hidden = task.state !== 'completed';
+    menu.querySelector('[data-action=resume]').hidden = task.state !== 'completed';
     menu.querySelector('[data-action=open]').hidden = !task.url;
     menu.hidden = false;
     const r = button.getBoundingClientRect();
@@ -195,6 +197,8 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     if (!task || !action) return;
     if (action === 'orbit') controller().setState(task.id, task.state === 'in-progress' ? 'not-started' : 'in-progress');
     if (action === 'complete') controller().setState(task.id, 'completed');
+    if (action === 'reopen') controller().setState(task.id, 'not-started');
+    if (action === 'resume') controller().setState(task.id, 'in-progress');
     if (action === 'open') controller().openSource(task.id);
     if (action === 'hide') controller().setHidden([task.id], true);
   };

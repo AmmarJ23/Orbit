@@ -515,14 +515,18 @@ function refreshSelection() {
     + (selected.userData.task.project ? '\n' + selected.userData.task.project : '')
     + (selected.userData.task.priority ? ' · ' + selected.userData.task.priority : '');
   $('open-source').hidden = DEMO || !selected.userData.task.url;
-  $('complete-planet').disabled = saving || !!forming || !!transfer || !!completion || status === 'completed';
-  $('complete-planet').textContent = completion ? 'Completing…' : status === 'completed' ? 'Completed ✓' : 'Complete ✓';
-  $('enter-orbit').hidden = !!completion || status === 'completed';
+  // A settled planet can be reopened: the primary action returns it to Not started, the other straight to In progress.
+  const settled = status === 'completed' && !completion;
+  $('complete-planet').disabled = saving || !!forming || !!transfer || !!completion;
+  $('complete-planet').textContent = completion ? 'Completing…' : settled ? 'In progress ↗' : 'Complete ✓';
+  $('enter-orbit').hidden = !!completion;
+  $('enter-orbit').disabled = saving;
+  $('enter-orbit').textContent = 'Reopen ↺';
   if (completion || status === 'completed') {
     $('planet-status').textContent = completion ? 'Completing' : 'Completed';
     $('planet-description').textContent = `${completion ? 'Travelling to' : 'Settled in'} the completed system`;
     const stageLabel = { approaching: 'Captured by the black hole', circling: 'Spiralling in', breaking: 'Crumbling under tidal forces', absorbing: 'Crossing the event horizon', emerging: 'Reassembling in the completed system' };
-    $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Captured by the black hole'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit.`;
+    $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Captured by the black hole'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit. Reopen returns it to Not started.`;
     return;
   }
   $('planet-status').textContent = forming ? 'Forming' : transfer ? isLeaving ? 'De-orbiting' : 'Entering orbit' : isWaiting ? 'Not started' : 'In progress';
@@ -564,9 +568,13 @@ function transferPlanet(selected, targetStatus) {
 }
 $('enter-orbit').onclick = () => {
   if (!selected || busyTasks.has(selected.userData.task.id)) return;
-  controller.setState(selected.userData.task.id, selected.userData.task.state === 'in-progress' ? 'not-started' : 'in-progress');
+  const { id, state } = selected.userData.task;
+  controller.setState(id, state === 'in-progress' || state === 'completed' ? 'not-started' : 'in-progress');
 };
-$('complete-planet').onclick = () => { if (selected) controller.setState(selected.userData.task.id, 'completed'); };
+$('complete-planet').onclick = () => {
+  if (!selected) return;
+  controller.setState(selected.userData.task.id, selected.userData.task.state === 'completed' ? 'in-progress' : 'completed');
+};
 $('open-source').onclick = () => { if (selected) controller.openSource(selected.userData.task.id); };
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -981,6 +989,8 @@ function applySnapshot(snapshot, { settle, animate }) {
     if (task.state === 'completed') {
       completionSystem.complete([planet]);
     } else if (previousTarget === 'completed') {
+      // Reopened: it re-forms in the active system, so a selection made from the completed view no longer points anywhere visible.
+      if (selected === planet && view === 'completed') select(null);
       completionSystem.remove(planet); planet.visible = true; posePlanet(planet, task.state); beginFormation(planet);
     } else {
       transferPlanet(planet, task.state);
