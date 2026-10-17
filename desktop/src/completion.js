@@ -126,7 +126,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
   const substep = 1 / 120; // Fixed integration step, so the paths do not depend on frame rate.
   const kickTime = 0.7; // Decay time of the push that separates chunks at breakup.
   function fall(body, dt, gm, decay) {
-    const plunge = 1 + 2.5 * (1 - smooth(body.r, horizon, horizon + 0.7));
+    const plunge = 1 + 1.2 * (1 - smooth(body.r, horizon, horizon + 0.4));
     body.r = Math.max(horizon - 0.2, body.r - decay / body.r * plunge * dt);
     body.theta += Math.sqrt(gm / body.r ** 3) * dt;
   }
@@ -293,7 +293,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
         piece.spin = (0.6 + random() * 1.6) * (random() < 0.5 ? -1 : 1);
         piece.quaternion = new THREE.Quaternion();
         piece.kick = 0.08 + random() * 0.14;
-        piece.infall = 3 + random() * 1.5; // Seconds to drain from the tidal limit to the horizon.
+        piece.infall = 5.5 + random() * 2; // Seconds to drain from the tidal limit to the horizon: about a lap.
       }
       // The same wedges condense out of the reborn dust and lock back together.
       const assembly = fracture(planet, world);
@@ -308,7 +308,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       const grains = Array.from({ length: grainCount }, (_, i) => ({
         parent: i < strippedCount ? -1 : (i - strippedCount) % pieceCount, // -1: the intact planet.
         threshold: i < strippedCount ? (i + 0.5) / strippedCount : random() * 0.85,
-        drag: 0.7 + random() * 1.3, body: null, released: 0, swallowed: false,
+        drag: 0.8 + random() * 0.6, body: null, released: 0, swallowed: false,
         delay: random() * 0.22, offset: random() * Math.PI * 2, height: (random() - 0.5) * 0.2, size: 0.4 + random(),
       }));
       // Inside the tidal limit the planet cannot hold together. It decays there in a few seconds,
@@ -319,7 +319,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       // GM that kept the planet circling at its ring speed, so capture starts with no jolt.
       const gm0 = data.speed ** 2 * data.orbit ** 3;
       const journey = { elapsed: 0, dustEnd: Infinity, body, roche, decay, gm0, radius: data.radius, broken: false, breakTime: 0,
-        left: pieceCount + grainCount, targetOrbit, targetPhase, copy, incoming, outgoing, grains, fragments, assembly, ripple: ripple(planet) };
+        left: pieceCount + grainCount, total: pieceCount + grainCount, targetOrbit, targetPhase, copy, incoming, outgoing, grains, fragments, assembly, ripple: ripple(planet) };
       data.completion = journey;
       journeys.set(planet, journey);
       onChange(planet);
@@ -342,8 +342,9 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       const from = j.elapsed;
       j.elapsed += step;
       const crossed = simulate(planet, j, from, step);
-      // Everything has crossed (or a stalled journey timed out): the completed system opens.
-      if (j.dustEnd === Infinity && j.broken && (j.left <= 0 || j.elapsed > 45)) j.dustEnd = j.elapsed;
+      // All but a few faint, redshifted stragglers have crossed (or a stalled journey timed out):
+      // the completed system opens. Waiting for the very last grain leaves a beat with nothing visible.
+      if (j.dustEnd === Infinity && j.broken && (j.left <= j.total * 0.03 || j.elapsed > 45)) j.dustEnd = j.elapsed;
       const dustEnd = j.dustEnd;
       const outwardEnd = dustEnd + outwardDuration;
       const formationEnd = outwardEnd + 3.5;
