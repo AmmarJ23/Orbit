@@ -8,6 +8,9 @@ const $ = id => document.getElementById(id);
 export function createTasksView({ controller, focusTask }) {
   const view = $('tasks-view');
   const collapsed = new Set();
+  // Lists longer than this start collapsed; `toggled` records the lists the reader has flipped.
+  const LIST_OPEN_MAX = 5;
+  const toggled = new Set();
   let tasks = [];
   let byId = new Map();
   let open = false;
@@ -141,16 +144,19 @@ export function createTasksView({ controller, focusTask }) {
         const group = Object.assign(document.createElement('div'), { className: 'tasks-group' });
         const head = Object.assign(document.createElement('div'), { className: 'group-head' });
         const caret = Object.assign(document.createElement('button'), { type: 'button', className: 'caret' });
-        caret.setAttribute('aria-expanded', String(!collapsed.has(key)));
-        caret.setAttribute('aria-label', (collapsed.has(key) ? 'Expand ' : 'Collapse ') + name);
-        caret.onclick = () => { collapsed.has(key) ? collapsed.delete(key) : collapsed.add(key); draw(); };
+        // A search opens every list so matches are never tucked away.
+        const closed = !query && (list.length > LIST_OPEN_MAX) !== toggled.has(key);
+        caret.setAttribute('aria-expanded', String(!closed));
+        caret.setAttribute('aria-label', (closed ? 'Expand ' : 'Collapse ') + name);
+        caret.disabled = !!query;
+        caret.onclick = () => { toggled.has(key) ? toggled.delete(key) : toggled.add(key); draw(); };
         const allHidden = list.every(task => task.hidden);
         const listHidden = list.filter(task => task.hidden).length;
         head.append(caret, Object.assign(document.createElement('strong'), { textContent: name }),
           cell('tree-meta', `${list.length} task${list.length === 1 ? '' : 's'}${listHidden ? ` · ${listHidden} hidden` : ''}`),
           bulk(list.map(task => task.id), allHidden, allHidden ? 'Show list' : 'Hide list', `${allHidden ? 'Show' : 'Hide'} every task in ${name}`));
         group.append(head);
-        if (!collapsed.has(key)) {
+        if (!closed) {
           const ul = Object.assign(document.createElement('ul'), { className: 'tree' });
           ul.append(...kept.map(task => taskRow(task, children, shown, 0)));
           group.append(ul);
