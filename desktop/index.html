@@ -13,7 +13,7 @@
   <button type="button" id="new-task" class="primary" disabled title="Tasks come from Redmine for now">+ New task</button>
   <!-- live:end -->
 </header>
-<section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1>Your active system</h1><p id="system-counts" role="status">—</p></section>
+<section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1 id="system-title">Your active system</h1><p id="system-counts" role="status">—</p></section>
 <p class="scene-hint">Drag to rotate · Scroll to zoom · Click a planet</p>
 
 <div class="sources" aria-label="Task sources">
@@ -42,12 +42,12 @@
 </div>
 
 <div class="system-switch" role="group" aria-label="Systems">
-  <button type="button" aria-pressed="true"><span class="switch-art active-art" aria-hidden="true"></span><span><strong>Active system</strong><small>Redmine + ClickUp</small></span></button>
-  <button type="button" aria-pressed="false" disabled title="Coming soon"><span class="switch-art done-art" aria-hidden="true"></span><span><strong>Completed</strong><small id="completed-count">0 tasks</small></span></button>
+  <button type="button" data-system="active" aria-pressed="true"><span class="switch-art active-art" aria-hidden="true"></span><span><strong>Active system</strong><small>Redmine + ClickUp</small></span></button>
+  <button type="button" data-system="completed" aria-pressed="false"><span class="switch-art done-art" aria-hidden="true"></span><span><strong>Completed</strong><small id="completed-count">0 tasks</small></span></button>
 </div>
 
 <div class="scene-controls">
-  <div class="legend glass"><span><i class="comet"></i>Orbiting · In progress</span><span><i class="grey"></i>Exoplanets · Not started</span></div>
+  <div class="legend glass"><span data-system="active"><i class="comet"></i>Orbiting · In progress</span><span data-system="active"><i class="grey"></i>Exoplanets · Not started</span><span data-system="completed" hidden><i class="settled"></i>Settled · Completed</span></div>
   <div class="control-cluster">
     <button type="button" id="zoom-out" class="icon" aria-label="Zoom out" title="Zoom out">−</button>
     <button type="button" id="zoom-in" class="icon" aria-label="Zoom in" title="Zoom in">+</button>
@@ -95,6 +95,8 @@
   <!-- live:end -->
   <section id="motion-panel" role="tabpanel" aria-labelledby="motion-tab" hidden>
     <label for="speed">Orbit speed <output id="speed-value">1×</output></label><input id="speed" type="range" min="0" max="3" step="0.1" value="1">
+    <label for="transition">System transition<select id="transition" aria-describedby="transition-note"></select></label>
+    <p class="note" id="transition-note"></p>
     <div class="pair"><label>Frame limit<select id="frame-limit"><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">Uncapped</option></select></label><label>Resolution<select id="resolution"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select></label></div>
     <label class="check"><input id="stars" type="checkbox" checked> Star field</label>
     <label class="check"><input id="depth" type="checkbox" checked> Nebula and foreground rocks</label>

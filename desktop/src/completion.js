@@ -1,21 +1,22 @@
 import * as THREE from 'three';
 
-// A second scene renders only while the shared completion glimpse is open.
-// The centre is a black hole: `core` holds its glow sprite, point light and accretion disc,
+// The completed system is a second place in the same scene, `centre` away from the active one,
+// lit by the scene's own lights. The glimpse panel renders it through its own small camera.
+// The active centre is a black hole: `core` holds its glow sprite, point light and accretion disc,
 // which swell while it feeds and flare when the last of a planet crosses the horizon.
-export function createCompletionSystem({ scene, rock, random, onChange, core }) {
+export function createCompletionSystem({ scene, rock, random, onChange, core, centre }) {
   const panel = document.getElementById('completed-preview');
   const caption = document.getElementById('completion-caption');
   const previewCanvas = document.getElementById('completed-space');
-  const world = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 100);
-  camera.position.set(0, 15, 20);
+  const world = new THREE.Group();
+  world.position.copy(centre);
+  scene.add(world);
+  // Layer 0 only: the glimpse leaves out the backdrop, which sits on layer 1. The far plane keeps
+  // the active system out of frame.
+  const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 60);
+  camera.position.copy(centre).add(new THREE.Vector3(0, 15, 20));
   camera.zoom = 1.5;
-  camera.lookAt(0, 0, 0);
-  world.add(new THREE.AmbientLight(0xa6c9e8, 1.4));
-  const light = new THREE.DirectionalLight(0xe3f3ff, 4);
-  light.position.set(-6, 9, 5);
-  world.add(light);
+  camera.lookAt(centre);
   world.add(rock(1.15, 0xa2d3ff, 1));
   for (const [radius, color] of [[4.2, 0x79bfff], [7.1, 0xa2d3ff]]) {
     const points = Array.from({ length: 161 }, (_, i) => {
@@ -50,6 +51,8 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
   let glimpse = 0; // Reduced motion: seconds left on a plain settled-system glimpse.
   let glimpseName = '';
   let lastCaption = '';
+  let travelEnergy = 0; // Set while the camera dives through the core between systems.
+  let previewEnabled = true; // Off while the completed system itself is on screen.
 
   // Photon ring and polar jets: one shared flare, restarted by each completion that ends.
   const photonRing = new THREE.Mesh(new THREE.RingGeometry(1, 1.06, 128, 1), new THREE.MeshBasicMaterial({ color: hot, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -81,7 +84,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
     alert *= Math.exp(-step * 2.2);
     flareAge += step;
     const flare = flareAge < 2.4 ? smooth(flareAge, 0, 0.08) * (1 - smooth(flareAge, 0.1, 2.4)) : 0;
-    const energy = alert + Math.min(feeding * 2.5, 1.2) + flare * 1.6;
+    const energy = alert + Math.min(feeding * 2.5, 1.2) + flare * 1.6 + travelEnergy;
     core.glow.scale.setScalar(base.glow * (1 + 0.3 * energy));
     core.glow.material.color.setScalar(1 + energy);
     core.light.intensity = base.light * (1 + 1.4 * energy);
@@ -279,6 +282,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       const targetPhase = 0.6 + occupied * 2.39996;
       const copy = new THREE.Mesh(planet.geometry, planet.material.clone());
       copy.rotation.copy(planet.rotation);
+      copy.userData.owner = planet;
       copy.visible = false;
       world.add(copy);
       const incoming = dust(0.045, true);
@@ -475,7 +479,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       latestName = glimpseName;
       visibleCount = 1;
     }
-    if (show) {
+    if (show && previewEnabled) {
       closing = 0;
       panel.hidden = false;
       panel.style.opacity = String(previewOpacity);
@@ -483,6 +487,9 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       const text = `${visibleCount > 1 ? `${visibleCount} worlds` : latestName} · ${previewPhase === 'forming' ? 'Reassembling' : previewPhase === 'settled' ? 'Settled in orbit' : 'Emerging'}`;
       // A live region: only write when the words change, so screen readers announce once.
       if (text !== lastCaption) caption.textContent = lastCaption = text;
+    } else if (!previewEnabled) {
+      panel.hidden = true;
+      closing = 0;
     } else if (!panel.hidden && !journeys.size) {
       closing += step;
       panel.style.opacity = String(1 - smooth(closing, 0, 0.75));
@@ -531,7 +538,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
     }
-    renderer.render(world, camera);
+    renderer.render(scene, camera);
   }
   function remove(planet) {
     const journey = journeys.get(planet);
@@ -558,6 +565,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
     const phase = (planet.userData.task?.seed ?? 19) % 6283 / 1000;
     const copy = new THREE.Mesh(planet.geometry, planet.material.clone());
     copy.rotation.copy(planet.rotation);
+    copy.userData.owner = planet;
     copy.position.set(Math.cos(phase) * orbit, 0, Math.sin(phase) * orbit);
     world.add(copy);
     settled.push({ planet, mesh: copy, orbit, phase });
@@ -573,5 +581,15 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
     panel.style.opacity = '1';
     closing = 0;
   }
-  return { complete, update, render, restore, remove, settleAll };
+  // Where a settled planet shows in the completed system, in scene coordinates.
+  function positionOf(planet, out) {
+    const item = settled.find(entry => entry.planet === planet);
+    return item ? out.copy(item.mesh.position).add(world.position) : null;
+  }
+  return {
+    complete, update, render, restore, remove, settleAll, positionOf, world,
+    settledMeshes: () => settled.map(item => item.mesh),
+    setPreview(enabled) { previewEnabled = enabled; },
+    setTravelEnergy(value) { travelEnergy = value; },
+  };
 }
