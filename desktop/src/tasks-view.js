@@ -130,7 +130,8 @@ export function createTasksView({ controller, focusTask }) {
       const hiddenCount = own.filter(task => task.hidden).length;
       const heading = Object.assign(document.createElement('div'), { className: 'source-head' });
       const name = Object.assign(document.createElement('div'), { className: 'source-name' });
-      name.append(Object.assign(document.createElement('h3'), { textContent: source }),
+      name.append(Object.assign(document.createElement('span'), { className: 'source-icon ' + source.toLowerCase(), textContent: source[0], ariaHidden: 'true' }),
+        Object.assign(document.createElement('h3'), { textContent: source }),
         cell('tree-meta', `${own.length} task${own.length === 1 ? '' : 's'}${hiddenCount ? ` · ${hiddenCount} hidden` : ''}`));
       // Column titles line up with the row cells below (same trailing grid tracks).
       heading.append(name, cell('tree-meta', 'Subtasks'), cell('tree-meta', 'Priority'), cell('tree-meta', 'Status'), cell('tree-meta', 'In scene'));

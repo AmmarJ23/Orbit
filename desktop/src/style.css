@@ -180,9 +180,10 @@ body.tasks-open :is(.intro,.sources,.scene-hint,#selection,.system-switch,.legen
 .tasks-body{flex:1;overflow:auto;padding-right:6px}
 /* Trailing tracks are shared by the source heading and every row so the columns align. */
 .tasks-view{--cols:72px 84px 104px 112px}
-.source-head{display:grid;grid-template-columns:minmax(0,1fr) var(--cols);align-items:end;gap:8px;position:sticky;top:0;z-index:1;background:#101829;padding:16px 0 8px;margin-top:4px}
-.source-name{display:flex;align-items:baseline;gap:10px;min-width:0}
-.source-head h3{font-size:15px;font-weight:600;margin:0}
+.source-head{display:grid;grid-template-columns:minmax(0,1fr) var(--cols);align-items:center;gap:8px;position:sticky;top:0;z-index:1;background:#111a2ce6;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:12px;padding:10px 0 10px 12px;margin-top:8px}
+.source-name{display:flex;align-items:center;gap:10px;min-width:0}
+.source-head h3{font-size:17px;font-weight:600;margin:0}
+.source-head .source-icon{width:26px;height:26px;border-radius:8px;font-size:12px}
 .tasks-group{margin-top:2px}
 .tasks-group+.tasks-group{margin-top:10px}
 .group-head{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 0;border-radius:8px;background:#1e2a4359}
