@@ -114,39 +114,31 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
   }
 
   const grainCount = 384;
-  // One constant angular acceleration from the moment the task is completed:
-  //   omega(t) = omega0 + alpha * t,   theta(t) = omega0 * t + alpha * t^2 / 2
-  const alpha = 0.12; // rad/s^2
-  const infallAccel = 1.2; // Radial acceleration (units/s^2) of grains falling along the ribbon, from rest.
-  const flowStart = 7; // The existing ribbon has finished stretching and shedding its surface.
-  const ribbonWrap = Math.PI * 1.65;
+  const strippedCount = 64; // Grains torn off the planet's surface before it breaks up.
   const outwardDuration = 3.6;
-  // Time at which theta = PI (the half-turn), solving alpha/2 t^2 + omega0 t - PI = 0.
-  function halfTurnTime(omega0) {
-    return (Math.sqrt(omega0 ** 2 + 2 * alpha * Math.PI) - omega0) / alpha;
+  // Every body (planet, chunk, grain) follows one gravity law. On capture the black hole's pull
+  // wakes up from the GM that held the planet on its ring to full strength, so the planet speeds
+  // up along its orbit with no radial kick. Angular speed is always Keplerian, sqrt(GM / r^3),
+  // while the orbit decays at dr/dt = -decay / r: each lap is tighter and faster than the last.
+  // Just above the horizon, past the last stable orbit, matter plunges.
+  const gravity = 26;
+  const captureTime = 2.5;
+  const substep = 1 / 120; // Fixed integration step, so the paths do not depend on frame rate.
+  const kickTime = 0.7; // Decay time of the push that separates chunks at breakup.
+  function fall(body, dt, gm, decay) {
+    const plunge = 1 + 2.5 * (1 - smooth(body.r, horizon, horizon + 0.7));
+    body.r = Math.max(horizon - 0.2, body.r - decay / body.r * plunge * dt);
+    body.theta += Math.sqrt(gm / body.r ** 3) * dt;
   }
-  // Approach radius. The tangential speed v = r * omega only ever rises, as in a gravity well:
-  // its acceleration starts at alpha * r0 (spin-up at constant radius, so no radial kick) and
-  // fades out exponentially with time constant tau, which is solved so that the planet reaches
-  // closeRadius exactly when the half-turn ends. Then r(t) = v(t) / omega(t).
-  function approachSpeedGain(omega0, startRadius, closeRadius, duration) {
-    const target = (omega0 + alpha * duration) * closeRadius - omega0 * startRadius;
-    let low = 0.05, high = 60;
-    for (let i = 0; i < 50; i++) {
-      const mid = (low + high) / 2;
-      if (alpha * startRadius * mid * (1 - Math.exp(-duration / mid)) < target) low = mid; else high = mid;
-    }
-    return (low + high) / 2;
-  }
-  function approachRadius(j, t) {
-    if (t === 0) return j.startOrbit;
-    const speed = j.omega0 * j.startOrbit
-      + alpha * j.startOrbit * j.tau * (1 - Math.exp(-Math.min(t, j.dustStart) / j.tau));
-    return speed / (j.omega0 + alpha * Math.min(t, j.dustStart));
-  }
-  // Angle swept by the body between two times under the constant acceleration.
-  function swept(omega0, from, to) {
-    return omega0 * (to - from) + 0.5 * alpha * (to ** 2 - from ** 2);
+  // The decay that carries a body from one radius to another in `duration` seconds (before the plunge).
+  const decayFor = (from, to, duration) => (from ** 2 - to ** 2) / (2 * duration);
+  const place = (body, out) => out.set(Math.cos(body.theta) * body.r, body.y, Math.sin(body.theta) * body.r);
+  // A body offset by a world-space vector from another, expressed on the same orbit.
+  function offsetBody(body, offset) {
+    const c = Math.cos(body.theta), s = Math.sin(body.theta);
+    const radial = offset.x * c + offset.z * s;
+    const along = -offset.x * s + offset.z * c;
+    return { r: body.r + radial, theta: body.theta + along / body.r, y: body.y + offset.y, radial, along };
   }
   // Infalling grains are unlit so they can glow as they heat; the reborn stream is lit normally.
   function dust(grainRadius, heated) {
@@ -180,12 +172,94 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(shades, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(shades, 3).setUsage(THREE.DynamicDrawUsage));
     const mesh = new THREE.Mesh(geometry, planet.material.clone());
     mesh.frustumCulled = false;
     mesh.visible = false;
     owner.add(mesh);
-    return { mesh, pieces, rotation: null };
+    return { mesh, pieces, shades: Float32Array.from(shades), rotation: null };
+  }
+  // Past the tidal limit the planet crumbles: each wedge becomes a chunk on its own orbit,
+  // starting exactly where it sat in the planet and pushed gently outward from its centre.
+  function breakApart(planet, j, t) {
+    j.broken = true;
+    j.breakTime = t;
+    const rotation = j.fragments.rotation = planet.quaternion.clone();
+    for (const piece of j.fragments.pieces) {
+      const offset = piece.rotatedCentre.copy(piece.centre).applyQuaternion(rotation);
+      const length = offset.length() || 1;
+      const body = offsetBody(j.body, offset);
+      piece.body = body;
+      piece.startRadius = body.r;
+      piece.push = { radial: body.radial / length * piece.kick, along: body.along / length * piece.kick, up: offset.y / length * piece.kick };
+      piece.decay = decayFor(body.r, horizon, piece.infall);
+    }
+  }
+  // Grains come off their parent (the planet before breakup, then a chunk) as it falls,
+  // and spiral in on their own, some faster and some slower than what shed them.
+  function release(grain, j, parentBody, decay, t) {
+    point.set(random() - 0.5, random() - 0.5, random() - 0.5);
+    point.multiplyScalar(grain.parent < 0 ? j.radius / (point.length() || 1) : 0.25);
+    grain.body = offsetBody(parentBody, point);
+    grain.decay = decay * grain.drag;
+    grain.released = t;
+  }
+  // Advances one journey's bodies in fixed substeps; returns how much matter crossed the horizon.
+  function simulate(planet, j, from, step) {
+    if (j.dustEnd !== Infinity) return 0;
+    let crossed = 0;
+    const steps = Math.min(Math.ceil(step / substep), 600);
+    const dt = steps ? step / steps : 0;
+    const pieces = j.fragments?.pieces ?? [];
+    for (let n = 0; n < steps; n++) {
+      const t = from + (n + 1) * dt;
+      const capture = smooth(t, 0, captureTime);
+      const gm = j.gm0 + (gravity - j.gm0) * capture;
+      if (!j.broken) {
+        fall(j.body, dt, gm, j.decay * capture);
+        if (j.body.r <= j.roche) breakApart(planet, j, t);
+      } else {
+        const since = t - j.breakTime;
+        const push = Math.exp(-since / kickTime);
+        const settle = smooth(since, 0, 1.5); // Chunks settle from the planet's decay into their own.
+        // The crumbling planet first drifts on as one loose cloud (its centre keeps the planet's
+        // orbit), then each chunk gradually takes its own orbit, so the debris does not shear
+        // into a streak the moment it breaks.
+        const cohesion = 1 - smooth(since, 0.4, 3.5);
+        fall(j.body, dt, gm, j.decay);
+        const cloudSpin = Math.sqrt(gm / j.body.r ** 3) * dt;
+        for (const piece of pieces) {
+          if (piece.swallowed) continue;
+          const body = piece.body;
+          const theta = body.theta;
+          fall(body, dt, gm, j.decay + (piece.decay - j.decay) * settle);
+          body.theta = theta + (body.theta - theta) * (1 - cohesion) + cloudSpin * cohesion;
+          body.r += piece.push.radial * push * dt;
+          body.theta += piece.push.along * push * dt / body.r;
+          body.y += (piece.push.up * push - body.y * 0.8) * dt; // Flattens into the disc plane.
+          if (body.r <= horizon) { piece.swallowed = true; j.left--; crossed += 3; }
+        }
+      }
+      for (const grain of j.grains) {
+        if (grain.swallowed) continue;
+        if (!grain.body) {
+          if (grain.parent < 0) {
+            // Tidal stripping: the surface starts coming away in the last stretch before breakup.
+            if (j.broken || j.body.r <= j.roche + 0.35 * (1 - grain.threshold)) release(grain, j, j.body, j.decay * capture, t);
+          } else if (j.broken) {
+            const piece = pieces[grain.parent];
+            if (piece.swallowed) { grain.swallowed = true; j.left--; crossed++; continue; }
+            const shed = (piece.startRadius - piece.body.r) / (piece.startRadius - horizon);
+            if (shed >= grain.threshold) release(grain, j, piece.body, piece.decay, t);
+          }
+          if (!grain.body) continue;
+        }
+        fall(grain.body, dt, gm, grain.decay);
+        grain.body.y -= grain.body.y * 0.8 * dt;
+        if (grain.body.r <= horizon) { grain.swallowed = true; j.left--; crossed++; }
+      }
+    }
+    return crossed;
   }
   function complete(planets) {
     for (const planet of planets) {
@@ -214,6 +288,13 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
       const fragments = fracture(planet, scene);
       fragments.mesh.material.emissive = cool.clone();
       fragments.mesh.material.emissiveIntensity = 0;
+      for (const piece of fragments.pieces) {
+        piece.axis = new THREE.Vector3(random() - 0.5, random() - 0.5, random() - 0.5).normalize();
+        piece.spin = (0.6 + random() * 1.6) * (random() < 0.5 ? -1 : 1);
+        piece.quaternion = new THREE.Quaternion();
+        piece.kick = 0.08 + random() * 0.14;
+        piece.infall = 3 + random() * 1.5; // Seconds to drain from the tidal limit to the horizon.
+      }
       // The same wedges condense out of the reborn dust and lock back together.
       const assembly = fracture(planet, world);
       for (const piece of assembly.pieces) {
@@ -223,27 +304,22 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
         piece.height = (random() - 0.5) * 0.6;
       }
       alert = Math.max(alert, 0.45);
-      const baseAngle = Math.atan2(planet.position.z, planet.position.x) + Math.PI;
-      const grains = Array.from({ length: grainCount }, (_, i) => {
-        // Stratify through the original volume so stretching cannot reveal empty gaps.
-        const side = (i + 0.5) / grainCount;
-        const radial = (side * 2 - 1) * data.radius;
-        const crossRadius = Math.sqrt(Math.max(0, data.radius ** 2 - radial ** 2)) * Math.sqrt(random());
-        const crossAngle = random() * Math.PI * 2;
-        const tangent = Math.cos(crossAngle) * crossRadius;
-        return { side, origin: new THREE.Vector3(Math.cos(baseAngle) * radial - Math.sin(baseAngle) * tangent,
-          Math.sin(crossAngle) * crossRadius, Math.sin(baseAngle) * radial + Math.cos(baseAngle) * tangent),
-          delay: random() * 0.22, offset: random() * Math.PI * 2, height: (random() - 0.5) * 0.2, size: 0.4 + random() };
-      });
-      const omega0 = data.speed;
-      const dustStart = halfTurnTime(omega0);
-      const tau = approachSpeedGain(omega0, data.orbit, 1.45 + data.radius + 0.3, dustStart);
-      // Grains fall along the ribbon from rest: d = g t^2 / 2. The outermost one must drop
-      // from its start radius to inside the core.
-      const pathSlope = 4 + 2 * data.radius; // Radius gained per unit of ribbon coordinate.
-      const outerDrop = pathSlope + 0.4;
-      const dustEnd = dustStart + flowStart + Math.sqrt(2 * outerDrop / infallAccel);
-      const journey = { elapsed: 0, dustEnd, startOrbit: data.orbit, startPhase: Math.atan2(planet.position.z, planet.position.x), omega0, dustStart, tau, targetOrbit, targetPhase, copy, incoming, outgoing, grains, fragments, assembly, ripple: ripple(planet), swallowed: 0 };
+      const pieceCount = fragments.pieces.length;
+      const grains = Array.from({ length: grainCount }, (_, i) => ({
+        parent: i < strippedCount ? -1 : (i - strippedCount) % pieceCount, // -1: the intact planet.
+        threshold: i < strippedCount ? (i + 0.5) / strippedCount : random() * 0.85,
+        drag: 0.7 + random() * 1.3, body: null, released: 0, swallowed: false,
+        delay: random() * 0.22, offset: random() * Math.PI * 2, height: (random() - 0.5) * 0.2, size: 0.4 + random(),
+      }));
+      // Inside the tidal limit the planet cannot hold together. It decays there in a few seconds,
+      // a little longer from the outer ring.
+      const roche = 2.2 + data.radius * 1.2;
+      const body = { r: data.orbit, theta: Math.atan2(planet.position.z, planet.position.x), y: 0 };
+      const decay = decayFor(data.orbit, roche, 3.3 + 0.5 * (data.orbit - roche));
+      // GM that kept the planet circling at its ring speed, so capture starts with no jolt.
+      const gm0 = data.speed ** 2 * data.orbit ** 3;
+      const journey = { elapsed: 0, dustEnd: Infinity, body, roche, decay, gm0, radius: data.radius, broken: false, breakTime: 0,
+        left: pieceCount + grainCount, targetOrbit, targetPhase, copy, incoming, outgoing, grains, fragments, assembly, ripple: ripple(planet) };
       data.completion = journey;
       journeys.set(planet, journey);
       onChange(planet);
@@ -263,22 +339,21 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
     let previewOpacity = 1;
     let swallowedNow = 0;
     for (const [planet, j] of journeys) {
+      const from = j.elapsed;
       j.elapsed += step;
+      const crossed = simulate(planet, j, from, step);
+      // Everything has crossed (or a stalled journey timed out): the completed system opens.
+      if (j.dustEnd === Infinity && j.broken && (j.left <= 0 || j.elapsed > 45)) j.dustEnd = j.elapsed;
       const dustEnd = j.dustEnd;
       const outwardEnd = dustEnd + outwardDuration;
       const formationEnd = outwardEnd + 3.5;
       const settledEnd = formationEnd + 1.5;
-      // One shrinking orbit, not a radial approach followed by a separate close circle.
-      const { dustStart } = j;
-      const disruptionTime = Math.max(0, j.elapsed - dustStart);
-      const breakup = clamp(disruptionTime / 12.5, 0, 1);
-      const closeRadius = 1.45 + planet.userData.radius + 0.3;
-      // Constant angular acceleration from the start of the journey, through every stage.
-      const angle = j.startPhase + swept(j.omega0, 0, j.elapsed);
-      const radius = approachRadius(j, j.elapsed);
-      planet.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-      if (j.elapsed < dustStart) planet.rotation.y += step * 0.7;
-      planet.visible = j.elapsed < dustStart;
+      const since = j.broken ? j.elapsed - j.breakTime : 0;
+      if (!j.broken) {
+        place(j.body, planet.position);
+        planet.rotation.y += step * 0.7;
+      }
+      planet.visible = !j.broken;
       if (j.ripple) {
         const t = clamp(j.elapsed / 1.4, 0, 1);
         j.ripple.position.copy(planet.position);
@@ -286,59 +361,37 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
         j.ripple.material.opacity = 0.75 * (1 - smooth(t, 0.05, 1));
         if (t >= 1) { disposeMesh(j.ripple, scene); j.ripple = null; }
       }
-      // No shrinking spherical emitter: the actual surface becomes separating wedges.
+      // The planet's own wedges, now chunks: each tumbles, sheds dust, heats and fades at the horizon.
       const fragments = j.fragments;
-      let sampleStream;
       if (fragments) {
-        if (j.elapsed >= dustStart && !fragments.rotation) fragments.rotation = planet.quaternion.clone();
-        fragments.mesh.visible = j.elapsed >= dustStart && disruptionTime < flowStart;
-        fragments.mesh.material.emissiveIntensity = 0.7 * smooth(disruptionTime, 0, 6); // Tidal heating.
-        const rotation = fragments.rotation || planet.quaternion;
-        const attr = fragments.mesh.geometry.attributes.position;
-        const baseAngle = j.startPhase + Math.PI;
-        const stretch = smooth(disruptionTime, 0, 5);
-        const wrap = ribbonWrap * smooth(disruptionTime, 1.5, 7);
-        // The whole ribbon keeps rotating under the same constant acceleration until absorption ends.
-        const advance = swept(j.omega0 + alpha * dustStart, 0, disruptionTime);
-        // Past flowStart the curl stops growing and grains fall along the same spiral, starting
-        // from rest relative to the ribbon (no velocity jump) with constant acceleration.
-        const flowTime = Math.max(0, disruptionTime - flowStart);
-        const pathSlope = 4 + 2 * planet.userData.radius;
-        const fallen = 0.5 * infallAccel * flowTime ** 2;
-        const flow = fallen / pathSlope; // Distance fallen, as a ribbon coordinate.
-        function streamPoint(local, out) {
-          const radial = local.x * Math.cos(baseAngle) + local.z * Math.sin(baseAngle);
-          const tangent = -local.x * Math.sin(baseAngle) + local.z * Math.cos(baseAngle);
-          const side = clamp((radial / planet.userData.radius + 1) * 0.5, 0, 1);
-          const position = side - flow;
-          const a = baseAngle + advance - wrap * (position - 0.5);
-          // Shift the coordinate along ONE spiral, rather than collapsing each
-          // grain's radius from its own angle. Every grain passes the same tip.
-          const r = Math.max(0, closeRadius + radial + stretch * (4 * side - 0.35) - fallen);
-          const width = (1 - stretch * 0.88) * smooth(r, 1, 1.4);
-          out.set(Math.cos(a) * r - Math.sin(a) * tangent * width,
-            local.y * width, Math.sin(a) * r + Math.cos(a) * tangent * width);
-          return side;
-        }
-        sampleStream = streamPoint;
-        if (fragments.mesh.visible) {
+        fragments.mesh.visible = j.broken;
+        if (j.broken) {
+          fragments.mesh.material.emissiveIntensity = 0.4 * smooth(since, 0, 3); // Tidal heating.
+          const attr = fragments.mesh.geometry.attributes.position;
+          const colours = fragments.mesh.geometry.attributes.color;
+          const shades = fragments.shades;
           fragments.pieces.forEach((piece, index) => {
-            const local = piece.rotatedCentre.copy(piece.centre).applyQuaternion(rotation);
-            const side = streamPoint(local, piece.worldCentre);
-            // Continuous vertex deformation makes the whole body become a ribbon before dispersing.
-            const erosion = smooth(disruptionTime, 2.5 + side * 1.2, 5.5 + side * 1.2);
-            piece.erosion = erosion;
+            const r = piece.body.r;
+            const remaining = piece.swallowed ? 0 : smooth(r, horizon - 0.05, horizon + 0.25);
+            const shed = clamp((piece.startRadius - r) / (piece.startRadius - horizon), 0, 1);
+            const scale = (1 - 0.45 * shed) * remaining; // Lighter as it sheds its dust.
+            const heat = 0.5 * (1 - smooth(r, horizon + 0.3, 3.4));
+            const crossing = smooth(r, horizon, horizon + 0.4);
+            place(piece.body, piece.worldCentre);
+            piece.quaternion.setFromAxisAngle(piece.axis, piece.spin * since).multiply(fragments.rotation);
             piece.vertices.forEach((vertex, k) => {
-              point.copy(vertex).add(piece.centre).applyQuaternion(rotation);
-              streamPoint(point, point);
-              point.lerp(piece.worldCentre, erosion);
-              attr.setXYZ(index * 12 + k, point.x, point.y, point.z);
+              const v = index * 12 + k;
+              point.copy(vertex).applyQuaternion(piece.quaternion).multiplyScalar(scale).add(piece.worldCentre);
+              attr.setXYZ(v, point.x, point.y, point.z);
+              tint.fromArray(shades, v * 3).lerp(hot, heat).lerp(redshifted, 1 - crossing);
+              colours.setXYZ(v, tint.r, tint.g, tint.b);
             });
           });
           attr.needsUpdate = true; // Flat shading derives normals per face, so none are recomputed.
+          colours.needsUpdate = true;
         }
       }
-      const stage = j.elapsed < dustStart * 0.4 ? 'approaching' : j.elapsed < dustStart ? 'circling' : disruptionTime < 2.5 ? 'stretching' : disruptionTime < 8 ? 'breaking' : j.elapsed < dustEnd ? 'absorbing' : 'emerging';
+      const stage = j.elapsed < captureTime ? 'approaching' : !j.broken ? 'circling' : since < 2.5 ? 'breaking' : j.elapsed < dustEnd ? 'absorbing' : 'emerging';
       if (j.stage !== stage) { j.stage = stage; onChange(planet); }
       const growth = smooth(j.elapsed, outwardEnd, formationEnd);
       const targetAngle = j.targetPhase + Math.max(0, j.elapsed - outwardEnd) * 0.035;
@@ -349,26 +402,22 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
         assemble(j, outwardEnd, formationEnd);
         if (j.elapsed >= formationEnd) { disposeMesh(j.assembly.mesh, world); j.assembly = null; }
       }
-      let swallowed = 0;
       j.grains.forEach((grain, i) => {
-        // Dust samples the original body volume and undergoes the same deformation as its surface.
-        const erosion = smooth(disruptionTime, 2.5 + grain.side * 1.2, 5.5 + grain.side * 1.2);
-        const dustReveal = smooth(erosion, 0.05, 0.85);
-        if (sampleStream && j.incoming) {
-          sampleStream(grain.origin, dummy.position);
-          const r = Math.hypot(dummy.position.x, dummy.position.z);
-          if (!grain.swallowed && r <= horizon) { grain.swallowed = true; swallowed++; }
-          // Debris heats as it falls, then redshifts to nothing as it crosses the horizon.
-          const heat = 1 - smooth(r, horizon + 0.3, 3.4);
-          const crossing = smooth(r, horizon, horizon + 0.4);
-          j.incoming.setColorAt(i, tint.copy(cool).lerp(hot, heat).lerp(redshifted, 1 - crossing));
-          const remaining = smooth(r, horizon - 0.05, horizon + 0.2);
-          const spread = Math.sin(breakup * Math.PI) * 0.1 * remaining;
-          dummy.position.x += Math.cos(grain.offset) * spread;
-          dummy.position.z += Math.sin(grain.offset) * spread;
-          dummy.position.y += grain.height * spread;
-          dummy.rotation.set(angle, grain.offset, angle * 0.7);
-          dummy.scale.setScalar(grain.size * dustReveal * remaining);
+        if (j.incoming) {
+          if (grain.body && !grain.swallowed) {
+            const r = grain.body.r;
+            place(grain.body, dummy.position);
+            // Debris heats as it falls, then redshifts to nothing as it crosses the horizon.
+            const heat = 1 - smooth(r, horizon + 0.3, 3.4);
+            const crossing = smooth(r, horizon, horizon + 0.4);
+            j.incoming.setColorAt(i, tint.copy(cool).lerp(hot, heat).lerp(redshifted, 1 - crossing));
+            const remaining = smooth(r, horizon - 0.05, horizon + 0.2);
+            dummy.rotation.set(grain.body.theta, grain.offset, grain.body.theta * 0.7);
+            dummy.scale.setScalar(grain.size * smooth(j.elapsed - grain.released, 0, 0.35) * remaining);
+          } else {
+            dummy.position.setScalar(0);
+            dummy.scale.setScalar(0);
+          }
           dummy.updateMatrix();
           j.incoming.setMatrixAt(i, dummy.matrix);
         }
@@ -395,11 +444,10 @@ export function createCompletionSystem({ scene, rock, random, onChange, core }) 
           j.fragments = null;
         }
       }
-      j.swallowed += swallowed;
-      swallowedNow += swallowed;
-      // The last grain crossing the horizon makes the black hole flare and fire its jets,
+      swallowedNow += crossed;
+      // The last of the planet crossing the horizon makes the black hole flare and fire its jets,
       // just as the completed system opens.
-      if (!j.flared && (j.swallowed >= grainCount || j.elapsed >= dustEnd)) { j.flared = true; flareAge = 0; }
+      if (!j.flared && j.elapsed >= dustEnd) { j.flared = true; flareAge = 0; }
       j.outgoing.instanceMatrix.needsUpdate = true;
       j.outgoing.material.opacity = 0.85 * smooth(j.elapsed, dustEnd, dustEnd + 0.6);
       if (j.elapsed >= dustEnd) {

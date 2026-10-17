@@ -417,7 +417,7 @@ function refreshSelection() {
   if (completion || status === 'completed') {
     $('planet-status').textContent = completion ? 'Completing' : 'Completed';
     $('planet-description').textContent = `${completion ? 'Travelling to' : 'Settled in'} the completed system`;
-    const stageLabel = { approaching: 'Captured by the black hole', circling: 'Spiralling in', stretching: 'Stretched by tidal forces', breaking: 'Torn into debris', absorbing: 'Crossing the event horizon', emerging: 'Reassembling in the completed system' };
+    const stageLabel = { approaching: 'Captured by the black hole', circling: 'Spiralling in', breaking: 'Crumbling under tidal forces', absorbing: 'Crossing the event horizon', emerging: 'Reassembling in the completed system' };
     $('orbit-hint').textContent = completion ? `${stageLabel[completion.stage] ?? 'Captured by the black hole'}${paused ? ' · motion paused' : '…'}` : `Reassembled in the ${destination} ${source} orbit.`;
     return;
   }
