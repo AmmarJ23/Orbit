@@ -173,3 +173,11 @@ Next proposed implementation step: a small Tauri + Three.js rendering/performanc
 ### Planet creation clarification — 10 October 2026
 
 The prototype supports creating sample planets with a name, Redmine/ClickUp source and Not started/In progress state. The user explicitly requested no persistence for prototype testing; the actual application must save planets and their states locally. This sample creation does not create external Redmine/ClickUp tasks.
+
+### Prototype handoff and next development phase — 15 October 2026
+
+The user considers the prototype mostly done. The next development phase is the Tauri Mac application, using the existing Three.js scene and approved interactions as the starting point. Further prototype polish can follow later.
+
+The first milestone is a runnable native Mac app: establish the Tauri/Rust toolchain, host the existing scene, restore window placement, distinguish closing the window from quitting, and pause rendering while hidden. Validate sustained resource use in the native Mac webview as part of this milestone. This supersedes waiting for additional browser-prototype validation before starting the native shell.
+
+Local persistence, secure credential storage, live task integrations, notes and background alerts follow the native foundation. The Redmine integration remains read-only, and Orbit owns its separate To do / Doing / Done state.
