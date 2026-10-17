@@ -25,6 +25,18 @@ pub struct Task {
     pub seed: u32,
 }
 
+// Camera move between the active and completed systems (desktop/src/travel.js).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Transition {
+    #[default]
+    Glide,
+    Warp,
+    Core,
+    Map,
+    Dip,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
@@ -37,6 +49,9 @@ pub struct Preferences {
     // Added after the first stored documents; older rows default to on.
     #[serde(default = "enabled")]
     pub depth: bool,
+    // Added later still; older rows default to Glide.
+    #[serde(default)]
+    pub transition: Transition,
 }
 fn enabled() -> bool {
     true
@@ -51,6 +66,7 @@ impl Default for Preferences {
             frame_limit: 60,
             resolution: 1.5,
             depth: true,
+            transition: Transition::Glide,
         }
     }
 }

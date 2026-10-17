@@ -73,13 +73,36 @@ function fadeOverflow(scroller) {
   watch(); update();
 }
 
-export function createAppUI({ controller, selectTask, selectedId }) {
+export function createAppUI({ controller, selectTask, selectedId, switchSystem }) {
   const rows = new Map();
   let connectionBusy = false;
   let lastSnapshot;
   let configuredServer;
   let menuTask = null;
+  let shownSystem = 'active';
   setupSourceRail();
+  const systemButtons = [...document.querySelectorAll('.system-switch [data-system]')];
+  for (const button of systemButtons) button.onclick = () => switchSystem(button.dataset.system);
+  function pressSystem(system, travelling) {
+    for (const button of systemButtons) button.setAttribute('aria-pressed', String(button.dataset.system === system));
+    document.querySelector('.system-switch').setAttribute('aria-busy', String(travelling));
+  }
+  function renderSystem() {
+    const tasks = lastSnapshot?.tasks ?? [];
+    const completed = shownSystem === 'completed';
+    $('system-title').textContent = completed ? 'Your completed system' : 'Your active system';
+    const done = tasks.filter(task => task.state === 'completed');
+    if (completed) {
+      const fromSource = source => done.filter(task => (task.source ?? 'Redmine') === source).length;
+      $('system-counts').textContent = `${done.length} completed · ${fromSource('Redmine')} Redmine · ${fromSource('ClickUp')} ClickUp`;
+    } else {
+      const active = tasks.filter(task => task.state === 'in-progress').length;
+      const waiting = tasks.filter(task => task.state === 'not-started').length;
+      $('system-counts').textContent = `${active} in progress · ${waiting} not started`;
+    }
+    $('completed-count').textContent = `${done.length} ${done.length === 1 ? 'task' : 'tasks'}`;
+    for (const item of document.querySelectorAll('.legend [data-system]')) item.hidden = item.dataset.system !== shownSystem;
+  }
   const dialog = $('connect-dialog');
   const openConnect = () => { if (!dialog.open) dialog.showModal(); $('redmine-key').focus(); };
   if (dialog) {
@@ -171,11 +194,7 @@ export function createAppUI({ controller, selectTask, selectedId }) {
       $(count).textContent = own.filter(task => task.state !== 'completed').length || '';
     }
     $('clickup-empty').hidden = tasks.some(task => task.source === 'ClickUp');
-    const active = tasks.filter(task => task.state === 'in-progress').length;
-    const waiting = tasks.filter(task => task.state === 'not-started').length;
-    const done = tasks.filter(task => task.state === 'completed').length;
-    $('system-counts').textContent = `${active} in progress · ${waiting} not started`;
-    $('completed-count').textContent = `${done} ${done === 1 ? 'task' : 'tasks'}`;
+    renderSystem();
     const redmineCount = tasks.filter(task => (task.source ?? 'Redmine') === 'Redmine').length;
     if (!dialog) {
       $('task-empty').hidden = redmineCount > 0;
@@ -208,6 +227,8 @@ export function createAppUI({ controller, selectTask, selectedId }) {
   }
   return {
     render,
+    pressSystem,
+    showSystem(system) { shownSystem = system; renderSystem(); },
     selected() { if (lastSnapshot) render(lastSnapshot); },
     busy(id, value) {
       if (id === 'connection') {

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCompletionSystem } from './completion.js';
+import { createSystemTravel, travelStyles } from './travel.js';
 import { createRenderLoop } from './render-loop.js';
 import { createFramePacer } from './frame-pacer.js';
 import { connectVisibility, isFullscreen, toggleFullscreen, reportRendering, desktop, onOpenSettings } from './platform.js';
@@ -45,6 +46,7 @@ controls.rotateSpeed = 0.55;
 controls.target.set(0, 0, 0);
 controls.update();
 controls.saveState();
+camera.layers.enable(1); // Layer 1 is the backdrop, which the completed-system glimpse leaves out.
 scene.add(new THREE.AmbientLight(0xa6c9e8, 1.4));
 const key = new THREE.DirectionalLight(0xe3f3ff, 4);
 key.position.set(-6, 9, 5);
@@ -84,10 +86,10 @@ function ring(radius, color, opacity = 0.6, dashed = false) {
   return line;
 }
 // Soft additive annuli under each orbit line read as a glow without a bloom pass.
-function glow(radius, color, width, opacity) {
+function glow(radius, color, width, opacity, parent = scene) {
   const mesh = new THREE.Mesh(new THREE.RingGeometry(radius - width, radius + width, 200, 1), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
   mesh.rotation.x = -Math.PI / 2;
-  scene.add(mesh);
+  parent.add(mesh);
   return mesh;
 }
 ring(4.2, 0x79bfff, 0.9);
@@ -290,14 +292,39 @@ for (let i = 0; i < 1600; i++) {
   const horizontal = Math.sqrt(1-y*y);
   const distance = 65 + random() * 35;
   starPositions.push(horizontal*Math.cos(theta)*distance, y*distance, horizontal*Math.sin(theta)*distance);
-  const color = new THREE.Color().setHSL(0.55 + random()*0.07, 0.3, 0.3 + random()*0.5);
+  const color = new THREE.Color().setHSL(0.55 + random()*0.07, 0.3, 0.3 + random()*0.5).multiplyScalar(0.95);
   starColors.push(color.r,color.g,color.b);
 }
+// The backdrop (stars, streaks, nebula) is drawn first and without depth, so either system paints
+// over it wherever the camera travels. Its centre follows the view (see updateBackdrop).
+const backdrop = (object, order) => { object.renderOrder = order; object.layers.set(1); object.frustumCulled = false; return object; };
 const starGeometry = new THREE.BufferGeometry();
 starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions,3));
 starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors,3));
-const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({size: 0.12, vertexColors: true, transparent: true, opacity: 0.95}));
+const stars = backdrop(new THREE.Points(starGeometry, new THREE.PointsMaterial({size: 0.12, vertexColors: true, depthTest: false, depthWrite: false})), -9);
 scene.add(stars);
+// Warp streaks: each star stretched back along the direction of travel, bright head to dark tail.
+const streakPositions = new THREE.Float32BufferAttribute(new Float32Array(starPositions.length * 2), 3).setUsage(THREE.DynamicDrawUsage);
+const streakColors = new Float32Array(starPositions.length * 2);
+const streakLengths = Array.from({ length: starPositions.length / 3 }, (_, i) => 10 + 18 * (Math.sin(i * 12.9898) * 43758.5453 % 1 + 1) % 1);
+for (let i = 0; i < starPositions.length; i += 3) streakColors.set([starColors[i] * 1.6, starColors[i + 1] * 1.6, starColors[i + 2] * 1.6, 0, 0, 0], i * 2);
+const streakGeometry = new THREE.BufferGeometry();
+streakGeometry.setAttribute('position', streakPositions);
+streakGeometry.setAttribute('color', new THREE.Float32BufferAttribute(streakColors, 3));
+const streaks = backdrop(new THREE.LineSegments(streakGeometry, new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false })), -8);
+streaks.visible = false;
+scene.add(streaks);
+function updateStreaks(strength, direction) {
+  streaks.visible = strength > 0.01;
+  if (!streaks.visible) return;
+  for (let i = 0; i < streakLengths.length; i++) {
+    const x = starPositions[i * 3], y = starPositions[i * 3 + 1], z = starPositions[i * 3 + 2];
+    const length = strength * streakLengths[i];
+    streakPositions.setXYZ(i * 2, x, y, z);
+    streakPositions.setXYZ(i * 2 + 1, x - direction.x * length, y - direction.y * length, z - direction.z * length);
+  }
+  streakPositions.needsUpdate = true;
+}
 
 // Depth layer (quality setting): far nebula sprites and dark rocks fixed near the camera.
 const depthLayer = new THREE.Group();
@@ -311,7 +338,7 @@ const nebulaTexture = canvasTexture(256, (g, s) => {
   }
 });
 for (const [x, y, z, size, turn] of [[-38, 14, -52, 70, 0.3], [30, 6, -58, 60, -0.5], [52, -4, 10, 54, 1.1], [-50, 2, 26, 48, 2]]) {
-  const cloud = new THREE.Sprite(new THREE.SpriteMaterial({ map: nebulaTexture, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, rotation: turn }));
+  const cloud = backdrop(new THREE.Sprite(new THREE.SpriteMaterial({ map: nebulaTexture, transparent: false, opacity: 0.85, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, rotation: turn })), -10);
   cloud.position.set(x, y, z); cloud.scale.set(size, size * 0.55, 1);
   depthLayer.add(cloud);
 }
@@ -322,6 +349,7 @@ for (const [x, y, z, size] of [[-5.6, -3.9, -10, 1.5], [-3.9, -4.1, -9, 0.7], [5
   boulder.material.transparent = true; boulder.material.opacity = 0.8;
   boulder.position.set(x, y, z);
   boulder.rotation.set(random() * 3, random() * 3, random() * 3);
+  boulder.layers.set(1);
   foreground.add(boulder);
 }
 camera.add(foreground);
@@ -366,9 +394,83 @@ let simulationTime = 0;
 let selected = null;
 let speed = 1;
 let frameLimit = 60;
-const completionSystem = createCompletionSystem({ scene, rock, random, core: { glow: coreGlow, light: coreLight, disc: accretion }, onChange: planet => {
+// Two systems share the scene: the active one at the origin and the completed one off to the side,
+// out of the default framing. The switch at the bottom left flies the camera between them.
+const systemCentres = { active: new THREE.Vector3(0, 0, 0), completed: new THREE.Vector3(70, -6, 10) };
+const homeOffset = camera.position.clone().sub(controls.target);
+let view = 'active';
+const completionSystem = createCompletionSystem({ scene, rock, random, centre: systemCentres.completed, core: { glow: coreGlow, light: coreLight, disc: accretion }, onChange: planet => {
   if (planet === selected) refreshSelection();
 } });
+// The completed system's pale core: a calm glow where finished work comes back together.
+const completedGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialSprite('rgba(162,211,255,0.4)', 'rgba(162,211,255,0)'), depthWrite: false, blending: THREE.AdditiveBlending }));
+completedGlow.scale.setScalar(5.5);
+const completedLight = new THREE.PointLight(0xa2d3ff, 16, 16, 2);
+completedLight.position.y = 1;
+completionSystem.world.add(completedGlow, completedLight);
+glow(4.2, 0x79bfff, 0.05, 0.2, completionSystem.world); glow(4.2, 0x79bfff, 0.2, 0.045, completionSystem.world);
+glow(7.1, 0x79bfff, 0.05, 0.16, completionSystem.world); glow(7.1, 0x79bfff, 0.22, 0.04, completionSystem.world);
+const homeOf = planet => planet.userData.status === 'completed' ? 'completed' : 'active';
+const shownAt = new THREE.Vector3();
+// Settled completed planets are drawn by their copy in the completed system while it is on screen.
+const displayPosition = planet => (view === 'completed' && homeOf(planet) === 'completed' && completionSystem.positionOf(planet, shownAt)) || planet.position;
+
+const veil = Object.assign(document.createElement('div'), { className: 'travel-veil', hidden: true });
+const markers = Object.assign(document.createElement('div'), { className: 'travel-markers', hidden: true });
+markers.setAttribute('aria-hidden', 'true');
+for (const [system, text] of [['active', 'Active system'], ['completed', 'Completed system']]) {
+  const marker = Object.assign(document.createElement('span'), { textContent: text });
+  marker.dataset.view = system;
+  markers.append(marker);
+}
+document.body.append(veil, markers);
+const travel = createSystemTravel({ camera, veil, markers });
+let travelStyle = 'glide';
+$('transition').append(...travelStyles.map(([id, name]) => new Option(name, id)));
+function showTravelStyle() {
+  $('transition').value = travelStyle;
+  $('transition-note').textContent = travelStyles.find(([id]) => id === travelStyle)[2];
+}
+$('transition').onchange = event => controller.savePreferences({ transition: event.target.value });
+showTravelStyle();
+function switchSystem(target, then) {
+  if (target === view) { then?.(); return; }
+  if (travel.active) return;
+  select(null); closeSettings();
+  hovered = null; stationHover = false; canvas.style.cursor = '';
+  controls.enabled = false;
+  completionSystem.setPreview(false);
+  ui.pressSystem(target, true);
+  const from = view;
+  travel.start({
+    style: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'dip' : travelStyle,
+    from: systemCentres[from], to: systemCentres[target], fromView: from, toView: target,
+    target: controls.target, centres: systemCentres,
+    onCut() { view = target; ui.showSystem(target); updateEmptyScene(); },
+    onDone() {
+      controls.target.copy(systemCentres[target]);
+      controls.target0.copy(systemCentres[target]);
+      controls.position0.copy(systemCentres[target]).add(homeOffset);
+      controls.enabled = true;
+      completionSystem.setPreview(target === 'active');
+      ui.pressSystem(target, false);
+      then?.();
+    },
+  });
+}
+// Selecting a task from the cards travels to whichever system it lives in.
+function focusTask(id) {
+  const planet = taskPlanets.get(id);
+  if (!planet) return;
+  if (homeOf(planet) === view) select(planet);
+  else switchSystem(homeOf(planet), () => select(planet));
+}
+let lastTasks = [];
+function updateEmptyScene() {
+  const completed = view === 'completed';
+  $('empty-scene').textContent = completed ? 'Nothing completed yet' : 'No tasks in orbit yet';
+  $('empty-scene').hidden = lastTasks.some(task => (task.state === 'completed') === completed);
+}
 function findOpenPhase(orbit) {
   const fullCircle = Math.PI * 2;
   const angles = planets
@@ -469,24 +571,29 @@ const pointer = new THREE.Vector2();
 let down = null;
 let hovered = null;
 let showLabels = true; // Off: labels appear only on hover or selection.
-const pickable = () => planets.filter(planet => planet.visible && !planet.userData.completion && planet.userData.status !== 'completed');
+const pickable = () => view === 'completed'
+  ? completionSystem.settledMeshes()
+  : planets.filter(planet => planet.visible && !planet.userData.completion && planet.userData.status !== 'completed');
+// Completed copies stand in for their planet.
+const pick = () => { const object = raycaster.intersectObjects(pickable())[0]?.object; return object?.userData.owner ?? object ?? null; };
+const pickStation = () => view === 'active' && raycaster.intersectObject(station, true).length > 0;
 // Hover reveals a label for waiting planets, or for any planet while labels are off.
 canvas.addEventListener('pointermove', e => {
-  if (e.buttons) return;
+  if (e.buttons || travel.active) return;
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
-  hovered = raycaster.intersectObjects(pickable())[0]?.object ?? null;
-  stationHover = !hovered && raycaster.intersectObject(station, true).length > 0;
+  hovered = pick();
+  stationHover = !hovered && pickStation();
   canvas.style.cursor = hovered || stationHover ? 'pointer' : '';
 });
 canvas.addEventListener('pointerleave', () => { hovered = null; stationHover = false; });
 canvas.addEventListener('pointerdown', e => { down = {x:e.clientX, y:e.clientY}; });
 canvas.addEventListener('pointerup', e => {
-  if (!down || Math.hypot(e.clientX-down.x,e.clientY-down.y)>5) return;
+  if (!down || travel.active || Math.hypot(e.clientX-down.x,e.clientY-down.y)>5) return;
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
-  const planet = raycaster.intersectObjects(pickable())[0]?.object ?? null;
-  if (!planet && raycaster.intersectObject(station, true).length) { select(null); openSettings(); }
+  const planet = pick();
+  if (!planet && pickStation()) { select(null); openSettings(); }
   else { closeSettings(); select(planet); }
   down = null;
 });
@@ -510,11 +617,12 @@ function updateLabels() {
     const data = planet.userData;
     const focus = planet === selected || planet === hovered;
     const waiting = data.status === 'not-started' || data.transfer?.kind === 'out';
-    const hidden = data.completion || data.status === 'completed' || data.forming || arrivals.has(planet);
+    const hidden = travel.active || homeOf(planet) !== view || data.completion || data.forming || arrivals.has(planet);
     if (hidden || (!showLabels && !focus)) { data.label.hidden = true; continue; }
-    projected.copy(planet.position).project(camera);
+    const position = displayPosition(planet);
+    const distance = camera.position.distanceTo(position);
+    projected.copy(position).project(camera);
     if (projected.z > 1) { data.label.hidden = true; continue; }
-    const distance = camera.position.distanceTo(planet.position);
     // Waiting exoplanets sit further out on a dashed leader, as in the concept.
     candidates.push({ planet, focus, waiting, x: (projected.x * 0.5 + 0.5) * innerWidth, y: (-projected.y * 0.5 + 0.5) * innerHeight, offset: data.radius * pixelsPerUnit / distance + (waiting ? 36 : 8), lead: waiting ? 30 : 0 });
   }
@@ -540,8 +648,9 @@ function updateLabels() {
 }
 $('labels-toggle').onclick = () => controller.savePreferences({ labels: !showLabels });
 $('pause').onclick = () => controller.savePreferences({ paused: !paused });
-$('reset').onclick = () => { controls.reset(); select(null); };
+$('reset').onclick = () => { if (!travel.active) { controls.reset(); select(null); } };
 function zoom(factor) {
+  if (travel.active) return;
   const offset = camera.position.clone().sub(controls.target);
   offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance));
   camera.position.copy(controls.target).add(offset);
@@ -611,12 +720,13 @@ const ringLabels = [[4.2, '01', 'Redmine', 0.55], [7.1, '02', 'ClickUp', 0.32]].
 });
 const ringPoint = new THREE.Vector3();
 function updateOverlays(now) {
-  const facing = Math.atan2(camera.position.z, camera.position.x);
+  const centre = systemCentres[view];
+  const facing = Math.atan2(camera.position.z - centre.z, camera.position.x - centre.x);
   for (const { el, radius, lean } of ringLabels) {
-    ringPoint.set(Math.cos(facing + lean) * radius, 0, Math.sin(facing + lean) * radius).project(camera);
+    ringPoint.set(centre.x + Math.cos(facing + lean) * radius, centre.y, centre.z + Math.sin(facing + lean) * radius).project(camera);
     // Task titles win: a ring label steps aside when it would cover one.
     const rect = { x: (ringPoint.x * 0.5 + 0.5) * innerWidth, y: (-ringPoint.y * 0.5 + 0.5) * innerHeight + 6, w: 96, h: 18 };
-    el.hidden = placedLabels.some(r => overlaps(rect, r)) || panelRects.some(r => overlaps(rect, r));
+    el.hidden = travel.active || placedLabels.some(r => overlaps(rect, r)) || panelRects.some(r => overlaps(rect, r));
     el.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
   }
   // Station: hover brightens it; an unconfigured Redmine connection makes it pulse softly.
@@ -633,7 +743,7 @@ const calloutPoint = new THREE.Vector3();
 function positionCallout() {
   if (!selected) return;
   const card = $('selection');
-  calloutPoint.copy(selected.position).project(camera);
+  calloutPoint.copy(displayPosition(selected)).project(camera);
   const x = (calloutPoint.x * 0.5 + 0.5) * innerWidth;
   const y = (-calloutPoint.y * 0.5 + 0.5) * innerHeight;
   const w = card.offsetWidth, h = card.offsetHeight;
@@ -705,12 +815,25 @@ function updateScene(delta) {
     // Waiting exoplanets stay still; only worlds in motion spin.
     if (data.status !== 'not-started' || data.transfer) planet.rotation.y = data.spinAngle + simulationTime*0.09;
   }
+  // A planet that leaves the completed system (reopened upstream) takes its selection with it.
+  if (selected && view === 'completed' && !travel.active && homeOf(selected) !== 'completed') select(null);
   if (selected) {
-    selectionRing.visible = selected.visible && selected.userData.status !== 'completed';
-    selectionRing.position.copy(selected.position);
+    selectionRing.visible = homeOf(selected) === view && (view === 'completed' || selected.visible);
+    selectionRing.position.copy(displayPosition(selected));
     selectionRing.quaternion.copy(camera.quaternion);
     selectionRing.scale.setScalar(selected.userData.radius * selected.scale.x);
   }
+}
+// The backdrop centres on whatever the camera orbits, so both systems get the same sky.
+function updateBackdrop() {
+  const { sky, streak, direction, energy } = travel.out;
+  const anchor = travel.active ? sky : controls.target;
+  stars.position.copy(anchor); streaks.position.copy(anchor); depthLayer.position.copy(anchor);
+  updateStreaks(streak, direction);
+  completionSystem.setTravelEnergy(1.5 * energy.active);
+  completedGlow.scale.setScalar(5.5 * (1 + 0.8 * energy.completed));
+  completedGlow.material.color.setScalar(1 + energy.completed);
+  completedLight.intensity = 16 * (1 + 1.5 * energy.completed);
 }
 const framePacer = createFramePacer(performance.now());
 let statsStart = performance.now();
@@ -721,8 +844,9 @@ function animate(now) {
   if (delta === null) return;
   updateScene(delta);
   updateFormations(delta);
+  if (!travel.update(delta)) controls.update();
+  updateBackdrop();
   completionSystem.update(delta, paused, speed);
-  controls.update();
   updateArrivalTags();
   updateLabels();
   updateOverlays(now);
@@ -796,6 +920,7 @@ function settlePlanet(planet) {
   }
 }
 function settleAll() {
+  travel.finish();
   for (const planet of taskPlanets.values()) settlePlanet(planet);
   completionSystem.settleAll();
   selectionRing.visible = false;
@@ -858,11 +983,14 @@ function applySnapshot(snapshot, { settle, animate }) {
   }
   const preferences = snapshot.preferences;
   paused = preferences.paused; speed = preferences.speed; frameLimit = preferences.frameLimit; showLabels = preferences.labels;
+  travelStyle = travelStyles.some(([id]) => id === preferences.transition) ? preferences.transition : 'glide';
+  showTravelStyle();
   stars.visible = preferences.stars;
   const depth = preferences.depth ?? true;
   depthLayer.visible = depth; foreground.visible = depth; $('depth').checked = depth;
   stationNeedsSetup = !DEMO && !snapshot.connection?.connected;
-  $('empty-scene').hidden = snapshot.tasks.some(task => task.state !== 'completed');
+  lastTasks = snapshot.tasks;
+  updateEmptyScene();
   if (renderer.getPixelRatio() !== preferences.resolution) { renderer.setPixelRatio(preferences.resolution); resize(); }
   $('labels-toggle').setAttribute('aria-pressed', String(showLabels));
   $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
@@ -870,7 +998,7 @@ function applySnapshot(snapshot, { settle, animate }) {
   $('frame-limit').value = frameLimit; $('resolution').value = preferences.resolution; $('stars').checked = preferences.stars;
   ui.render(snapshot); refreshSelection(); updateLabels();
 }
-ui = createAppUI({ controller: () => controller, selectTask: id => select(taskPlanets.get(id)), selectedId: () => selected?.userData.task.id });
+ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem });
 for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
 async function boot() {
   let repository;
@@ -885,7 +1013,7 @@ async function boot() {
       applySnapshot, settle: settleAll, setVisible: visible => renderLoop.setVisible('application', visible),
       error: message => ui.error(message), busy: (id, value) => { ui.busy(id, value); value ? busyTasks.add(id) : busyTasks.delete(id); refreshSelection(); },
     } });
-    demo.setupDemoTools({ repository, controller, selectTask: id => select(taskPlanets.get(id)) });
+    demo.setupDemoTools({ repository, controller, selectTask: focusTask });
   } else {
     const { createNativeRepository } = await import('./native-repository.js');
     repository = await createNativeRepository();
