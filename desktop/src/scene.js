@@ -328,7 +328,7 @@ function updateStreaks(strength, direction) {
   streakPositions.needsUpdate = true;
 }
 
-// Depth layer (quality setting): far nebula sprites and dark rocks fixed near the camera.
+// Depth layers (quality settings): far nebula sprites, and dark rocks fixed near the camera.
 const depthLayer = new THREE.Group();
 const nebulaTexture = canvasTexture(256, (g, s) => {
   for (let i = 0; i < 14; i++) {
@@ -669,7 +669,8 @@ function setDebug(value) {
 }
 $('debug').onchange = e => setDebug(e.target.checked);
 setDebug(debug);
-$('depth').onchange = e => controller.savePreferences({ depth: e.target.checked });
+$('nebula').onchange = e => controller.savePreferences({ nebula: e.target.checked });
+$('rocks').onchange = e => controller.savePreferences({ rocks: e.target.checked });
 
 // Station settings card: anchored beside the station, closed by Esc or an outside click.
 const settingsCard = $('settings');
@@ -990,8 +991,8 @@ function applySnapshot(snapshot, { settle, animate }) {
   travelStyle = travelStyles.some(([id]) => id === preferences.transition) ? preferences.transition : 'glide';
   showTravelStyle();
   stars.visible = preferences.stars;
-  const depth = preferences.depth ?? true;
-  depthLayer.visible = depth; foreground.visible = depth; $('depth').checked = depth;
+  depthLayer.visible = preferences.nebula; $('nebula').checked = preferences.nebula;
+  foreground.visible = preferences.rocks; $('rocks').checked = preferences.rocks;
   // Pulse the station until at least one source is connected.
   stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);
   lastTasks = sceneTasks;

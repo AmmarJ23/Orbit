@@ -70,7 +70,7 @@ pub enum Transition {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", from = "StoredPreferences")]
 pub struct Preferences {
     pub labels: bool,
     pub stars: bool,
@@ -78,15 +78,43 @@ pub struct Preferences {
     pub paused: bool,
     pub frame_limit: u32,
     pub resolution: f64,
-    // Added after the first stored documents; older rows default to on.
-    #[serde(default = "enabled")]
-    pub depth: bool,
-    // Added later still; older rows default to Glide.
-    #[serde(default)]
+    pub nebula: bool,
+    pub rocks: bool,
     pub transition: Transition,
 }
-fn enabled() -> bool {
-    true
+// What a stored document may hold, including fields from older versions.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StoredPreferences {
+    labels: bool,
+    stars: bool,
+    speed: f64,
+    paused: bool,
+    frame_limit: u32,
+    resolution: f64,
+    // Nebula and rocks once shared one `depth` switch; older rows default to on.
+    depth: Option<bool>,
+    nebula: Option<bool>,
+    rocks: Option<bool>,
+    // Added later still; older rows default to Glide.
+    #[serde(default)]
+    transition: Transition,
+}
+impl From<StoredPreferences> for Preferences {
+    fn from(stored: StoredPreferences) -> Self {
+        let depth = stored.depth.unwrap_or(true);
+        Self {
+            labels: stored.labels,
+            stars: stored.stars,
+            speed: stored.speed,
+            paused: stored.paused,
+            frame_limit: stored.frame_limit,
+            resolution: stored.resolution,
+            nebula: stored.nebula.unwrap_or(depth),
+            rocks: stored.rocks.unwrap_or(depth),
+            transition: stored.transition,
+        }
+    }
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -97,7 +125,8 @@ impl Default for Preferences {
             paused: false,
             frame_limit: 60,
             resolution: 1.5,
-            depth: true,
+            nebula: true,
+            rocks: true,
             transition: Transition::Glide,
         }
     }
