@@ -24,6 +24,8 @@ mod redmine;
 mod repository;
 #[cfg(not(feature = "demo"))]
 mod service;
+#[cfg(not(feature = "demo"))]
+mod vpn;
 
 #[tauri::command]
 fn get_app_mode() -> &'static str {
@@ -133,7 +135,8 @@ fn main() {
         commands::list_workspaces,
         commands::refresh_source,
         commands::disconnect_source,
-        commands::open_source_task
+        commands::open_source_task,
+        commands::list_vpns
     ]);
     builder
         .setup(|app| {
@@ -295,6 +298,8 @@ fn main() {
                 if let Ok(service) = &app.state::<commands::LiveState>().0 {
                     service.stop();
                 }
+                #[cfg(not(feature = "demo"))]
+                vpn::stop_started();
             }
             _ => {}
         });

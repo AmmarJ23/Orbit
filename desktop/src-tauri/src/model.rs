@@ -81,6 +81,8 @@ pub struct Preferences {
     pub nebula: bool,
     pub rocks: bool,
     pub transition: Transition,
+    // macOS VPN service to connect before each Redmine sync.
+    pub redmine_vpn: Option<String>,
 }
 // What a stored document may hold, including fields from older versions.
 #[derive(Deserialize)]
@@ -99,6 +101,8 @@ struct StoredPreferences {
     // Added later still; older rows default to Glide.
     #[serde(default)]
     transition: Transition,
+    #[serde(default)]
+    redmine_vpn: Option<String>,
 }
 impl From<StoredPreferences> for Preferences {
     fn from(stored: StoredPreferences) -> Self {
@@ -113,6 +117,7 @@ impl From<StoredPreferences> for Preferences {
             nebula: stored.nebula.unwrap_or(depth),
             rocks: stored.rocks.unwrap_or(depth),
             transition: stored.transition,
+            redmine_vpn: stored.redmine_vpn,
         }
     }
 }
@@ -128,6 +133,7 @@ impl Default for Preferences {
             nebula: true,
             rocks: true,
             transition: Transition::Glide,
+            redmine_vpn: None,
         }
     }
 }
@@ -139,6 +145,13 @@ impl Preferences {
             || ![1., 1.5, 2.].contains(&self.resolution)
         {
             return Err("Invalid motion or quality setting.".into());
+        }
+        if self
+            .redmine_vpn
+            .as_ref()
+            .is_some_and(|name| name.trim().is_empty() || name.len() > 256 || name.contains('"'))
+        {
+            return Err("Invalid VPN setting.".into());
         }
         Ok(())
     }

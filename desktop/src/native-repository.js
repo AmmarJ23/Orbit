@@ -15,5 +15,6 @@ export async function createNativeRepository() {
     disconnect: source => invoke('disconnect_source', { source }),
     refresh: source => invoke('refresh_source', { source }),
     openSource: id => invoke('open_source_task', { id }),
+    listVpns: () => invoke('list_vpns'),
   };
 }

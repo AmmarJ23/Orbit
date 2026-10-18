@@ -172,6 +172,30 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     };
     $(ids.refresh).onclick = () => controller().refresh(source);
   }
+  // Redmine's VPN choice lists the macOS VPN services, keeping a saved one that has since gone.
+  let vpnNames = null;
+  const loadVpns = async () => { vpnNames = await controller().listVpns(); renderVpn(); };
+  function renderVpn() {
+    const select = $('redmine-vpn');
+    if (!select) return;
+    // The controller exists once snapshots render, so the first list loads here.
+    if (!vpnNames) { vpnNames = []; loadVpns(); }
+    const saved = lastSnapshot?.preferences?.redmineVpn ?? '';
+    const names = saved && !vpnNames.includes(saved) ? [...vpnNames, saved] : vpnNames;
+    // Snapshots arrive every sync; rebuilding an open menu would close it.
+    const key = JSON.stringify([names, saved]);
+    if (select.dataset.key === key) return;
+    select.dataset.key = key;
+    select.replaceChildren(new Option('None', ''), ...names.map(name => new Option(name, name)));
+    select.value = saved;
+  }
+  if (live) {
+    $('redmine-vpn').onfocus = loadVpns;
+    $('redmine-vpn').onchange = async event => {
+      const saved = await controller().savePreferences({ redmineVpn: event.target.value || null });
+      if (saved && event.target.value && lastSnapshot?.sources?.Redmine?.connection?.connected) controller().refresh('Redmine');
+    };
+  }
   $('error').onclick = () => { $('error').hidden = true; };
 
   const menu = $('task-menu');
@@ -283,6 +307,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     for (const [id, item] of rows) if (!ids.has(id)) { item.remove(); rows.delete(id); }
     for (const [source, sourceIds] of Object.entries(sources)) renderSource(source, sourceIds, tasks, snapshot.sources?.[source]);
     renderSystem();
+    renderVpn();
   }
   return {
     render,

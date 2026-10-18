@@ -110,3 +110,7 @@ pub async fn open_source_task(
     })
     .await
 }
+#[tauri::command]
+pub async fn list_vpns() -> Result<Vec<String>, String> {
+    blocking(|| Ok(crate::vpn::list())).await
+}

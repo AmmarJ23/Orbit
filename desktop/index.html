@@ -104,6 +104,8 @@
     <p id="connection-summary" class="note"></p>
     <div class="form-actions"><button type="button" id="edit-connection" class="primary">Connect Redmine</button><button type="button" id="disconnect-redmine" hidden>Disconnect</button></div>
     <p id="connection-feedback" role="status"></p>
+    <label for="redmine-vpn">VPN<select id="redmine-vpn" aria-describedby="redmine-vpn-note"><option value="">None</option></select></label>
+    <p class="note" id="redmine-vpn-note">Orbit connects this VPN before connecting or refreshing Redmine, and disconnects it on quit if Orbit turned it on.</p>
   </section>
   <section id="clickup-panel" role="tabpanel" aria-labelledby="clickup-tab" hidden>
     <p id="clickup-summary" class="note"></p>

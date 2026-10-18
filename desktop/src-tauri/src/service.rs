@@ -98,6 +98,14 @@ impl Service {
             .get(&source)
             .ok_or_else(|| format!("{} is not available in this build.", source.name()))
     }
+    // Redmine may sit behind a VPN; connect the chosen one before any request.
+    fn vpn(&self, source: Source) -> Result<(), String> {
+        if source != Source::Redmine {
+            return Ok(());
+        }
+        let name = self.runtime.lock().unwrap().saved.preferences.redmine_vpn.clone();
+        name.map_or(Ok(()), |name| crate::vpn::ensure(&name))
+    }
     pub fn start(self: &Arc<Self>) {
         let (sender, receiver) = mpsc::sync_channel(1);
         *self.wake.lock().unwrap() = Some(sender.clone());
@@ -233,6 +241,7 @@ impl Service {
     ) -> Result<Snapshot, String> {
         let remote = self.remote(source)?.clone();
         let _gate = self.network.lock().unwrap();
+        self.vpn(source)?;
         // Do not replace the old connection or pause its polling for invalid setup input.
         let identity = remote.identify(base, key, scope).map_err(|e| e.message)?;
         let account_id = format!(
@@ -367,12 +376,20 @@ impl Service {
             },
         );
         let result = self
-            .credentials
-            .get(&reference)
+            .vpn(source)
             .map_err(|message| RemoteError {
                 message,
-                auth: true,
+                auth: false,
                 retry_after: None,
+            })
+            .and_then(|()| {
+                self.credentials
+                    .get(&reference)
+                    .map_err(|message| RemoteError {
+                        message,
+                        auth: true,
+                        retry_after: None,
+                    })
             })
             .and_then(|key| remote.tasks(&account, &key));
         match result {

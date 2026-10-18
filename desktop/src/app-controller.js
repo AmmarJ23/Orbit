@@ -1,4 +1,4 @@
-export const defaultPreferences = { labels: true, stars: true, speed: 1, paused: false, frameLimit: 60, resolution: 1.5, nebula: true, rocks: true, transition: 'glide' };
+export const defaultPreferences = { labels: true, stars: true, speed: 1, paused: false, frameLimit: 60, resolution: 1.5, nebula: true, rocks: true, transition: 'glide', redmineVpn: null };
 
 // Own hydration/visibility ordering independently of DOM, Three.js and IPC.
 export function createAppController({ repository, view }) {
@@ -92,5 +92,6 @@ export function createAppController({ repository, view }) {
     disconnect: source => operation(() => repository.disconnect(source), 'connection:' + source),
     refresh: source => operation(() => repository.refresh(source), 'refresh'),
     openSource: id => operation(() => repository.openSource(id), 'source'),
+    listVpns: () => repository.listVpns().catch(() => []),
   };
 }
