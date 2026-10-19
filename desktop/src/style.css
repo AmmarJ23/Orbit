@@ -167,6 +167,9 @@ i{display:block;width:7px;height:7px;border-radius:50%}.comet{background:var(--p
 /* Tasks tab: a full task manager floating over the scene. */
 body.tasks-open :is(.intro,.sources,.scene-hint,#selection,.system-switch,.legend,.scene-controls,#completed-preview){visibility:hidden}
 .tasks-view{position:fixed;top:72px;left:var(--edge);right:var(--edge);bottom:20px;z-index:6;display:flex;flex-direction:column;padding:20px 22px 12px;max-width:1100px;margin:0 auto;font-size:13px}
+.tasks-view:not([hidden]){animation:tasks-in .18s cubic-bezier(.2,.8,.2,1)}
+@keyframes tasks-in{from{opacity:0;transform:translateY(8px)}}
+@media (prefers-reduced-motion:reduce){.tasks-view:not([hidden]){animation:none}}
 .tasks-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .tasks-head h2{font-size:20px;font-weight:500;letter-spacing:-.3px;margin:0}.tasks-head .note{margin-top:4px;font-size:12px}
 .tasks-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tasks-tools input[type=text]{width:240px;height:44px;margin:0;font-size:14px;border-radius:12px}.tasks-tools .check{margin:0;font-size:13px}
