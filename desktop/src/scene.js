@@ -512,7 +512,7 @@ function refreshSelection() {
   // A settled planet can be reopened: the primary action returns it to Not started, the other straight to In progress.
   const settled = status === 'completed' && !completion;
   $('complete-planet').disabled = saving || !!forming || !!transfer || !!completion;
-  $('complete-planet').textContent = completion ? 'Completing…' : settled ? 'In progress ↗' : 'Complete ✓';
+  $('complete-planet').textContent = completion ? 'Completing…' : settled ? 'In progress →' : 'Complete ✓';
   $('enter-orbit').hidden = !!completion;
   $('enter-orbit').disabled = saving;
   $('enter-orbit').textContent = 'Reopen ↺';
@@ -527,7 +527,7 @@ function refreshSelection() {
   $('planet-status').classList.toggle('active', !isWaiting);
   $('planet-description').textContent = isLeaving ? 'Returning to the waiting ring' : isWaiting ? 'Awaiting orbital insertion' : `${destination[0].toUpperCase() + destination.slice(1)} orbit`;
   $('enter-orbit').disabled = saving || !!transfer || !!forming;
-  $('enter-orbit').textContent = forming ? 'Forming…' : transfer ? isLeaving ? 'De-orbiting…' : 'Entering…' : isWaiting ? 'Enter orbit ↗' : 'De-orbit ↗';
+  $('enter-orbit').textContent = forming ? 'Forming…' : transfer ? isLeaving ? 'De-orbiting…' : 'Entering…' : isWaiting ? 'Enter orbit →' : 'De-orbit ←';
   $('orbit-hint').textContent = forming
     ? `Dust is gathering into a new world${paused ? ' · motion paused' : '…'}`
     : transfer
@@ -769,7 +769,7 @@ $('fullscreen').onclick = async () => {
   } catch (error) { console.error('Could not toggle fullscreen', error); }
 };
 async function updateFullscreenLabel() {
-  $('fullscreen').textContent = await isFullscreen() ? 'Exit fullscreen ↙' : 'Fullscreen ↗';
+  $('fullscreen').textContent = await isFullscreen() ? 'Exit fullscreen' : 'Fullscreen';
 }
 document.addEventListener('fullscreenchange', updateFullscreenLabel);
 addEventListener('resize', updateFullscreenLabel);
