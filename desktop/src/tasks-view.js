@@ -108,11 +108,12 @@ export function createTasksView({ controller, focusTask }) {
     }
     return li;
   }
-  // Keep a branch when anything inside it matches, so a found subtask keeps its parent.
+  // Keep a branch when anything inside it survives, so a found subtask keeps its parent and a
+  // shown subtask keeps its hidden parent as context.
   function prune(task, children, shown) {
     const kids = (children.get(task.id) ?? []).filter(kid => prune(kid, children, shown));
     shown.set(task.id, kids);
-    return (showHidden || !task.hidden) && (matches(task) || kids.length > 0);
+    return kids.length > 0 || ((showHidden || !task.hidden) && matches(task));
   }
 
   function draw() {
