@@ -54,6 +54,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
   let travelEnergy = 0; // Set while the camera dives through the core between systems.
   let previewEnabled = true; // Off while the completed system itself is on screen.
   let previewAllowed = true; // The user's setting.
+  let sky = 0x0c1222; // Clear colour, kept in step with the main scene.
 
   // Photon ring and polar jets: one shared flare, restarted by each completion that ends.
   const photonRing = new THREE.Mesh(new THREE.RingGeometry(1, 1.06, 128, 1), new THREE.MeshBasicMaterial({ color: hot, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -528,7 +529,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
     if (panel.hidden) return;
     if (!renderer) {
       renderer = new THREE.WebGLRenderer({ canvas: previewCanvas, antialias: true });
-      renderer.setClearColor(0x0c1222);
+      renderer.setClearColor(sky);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.25;
     }
@@ -592,6 +593,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
     settledMeshes: () => settled.map(item => item.mesh),
     setPreview(enabled) { previewEnabled = enabled; },
     allowPreview(allowed) { previewAllowed = allowed; },
+    setSky(color) { sky = color; renderer?.setClearColor(color); },
     setTravelEnergy(value) { travelEnergy = value; },
   };
 }

@@ -28,7 +28,9 @@ try {
   $('error').textContent = `Orbit needs WebGL 2. ${error.message}`;
   throw error;
 }
-renderer.setClearColor(0x0c1222);
+// Navy by default; the Black sky setting swaps it for pure black.
+const skyColors = { navy: 0x0c1222, black: 0x000000 };
+renderer.setClearColor(skyColors.navy);
 renderer.setPixelRatio(1.5);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -673,6 +675,7 @@ $('debug').onchange = e => setDebug(e.target.checked);
 setDebug(debug);
 $('nebula').onchange = e => controller.savePreferences({ nebula: e.target.checked });
 $('rocks').onchange = e => controller.savePreferences({ rocks: e.target.checked });
+$('black-sky').onchange = e => controller.savePreferences({ blackSky: e.target.checked });
 $('completion-preview').onchange = e => controller.savePreferences({ completionPreview: e.target.checked });
 
 // Station settings card: anchored beside the station, closed by Esc or an outside click.
@@ -1024,6 +1027,9 @@ function applySnapshot(snapshot, { settle, animate }) {
   stars.visible = preferences.stars;
   depthLayer.visible = preferences.nebula; $('nebula').checked = preferences.nebula;
   foreground.visible = preferences.rocks; $('rocks').checked = preferences.rocks;
+  const sky = preferences.blackSky ? skyColors.black : skyColors.navy;
+  renderer.setClearColor(sky); completionSystem.setSky(sky); $('black-sky').checked = preferences.blackSky;
+  document.body.classList.toggle('black-sky', preferences.blackSky);
   completionSystem.allowPreview(preferences.completionPreview); $('completion-preview').checked = preferences.completionPreview;
   // Pulse the station until at least one source is connected.
   stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);

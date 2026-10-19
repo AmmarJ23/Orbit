@@ -82,6 +82,8 @@ pub struct Preferences {
     pub rocks: bool,
     // The glimpse of the completed system shown while a planet completes.
     pub completion_preview: bool,
+    // Pure black space instead of the navy tinge.
+    pub black_sky: bool,
     pub transition: Transition,
     // macOS VPN service to connect before each Redmine sync.
     pub redmine_vpn: Option<String>,
@@ -101,6 +103,8 @@ struct StoredPreferences {
     nebula: Option<bool>,
     rocks: Option<bool>,
     completion_preview: Option<bool>,
+    #[serde(default)]
+    black_sky: bool,
     // Added later still; older rows default to Glide.
     #[serde(default)]
     transition: Transition,
@@ -120,6 +124,7 @@ impl From<StoredPreferences> for Preferences {
             nebula: stored.nebula.unwrap_or(depth),
             rocks: stored.rocks.unwrap_or(depth),
             completion_preview: stored.completion_preview.unwrap_or(true),
+            black_sky: stored.black_sky,
             transition: stored.transition,
             redmine_vpn: stored.redmine_vpn,
         }
@@ -137,6 +142,7 @@ impl Default for Preferences {
             nebula: true,
             rocks: true,
             completion_preview: true,
+            black_sky: false,
             transition: Transition::Glide,
             redmine_vpn: None,
         }
