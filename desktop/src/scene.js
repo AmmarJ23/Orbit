@@ -771,6 +771,27 @@ $('fullscreen').onclick = async () => {
 async function updateFullscreenLabel() {
   $('fullscreen').textContent = await isFullscreen() ? 'Exit fullscreen' : 'Fullscreen';
 }
+// Zen mode hides every panel and control, leaving the scene, its labels and planet selection.
+// It is a temporary view, so it is never saved.
+let zen = false;
+function setZen(value) {
+  zen = value;
+  if (zen) tasksView.close();
+  document.body.classList.toggle('zen', zen);
+  $('zen').setAttribute('aria-pressed', String(zen));
+  $('zen').title = zen ? 'Exit Zen mode (Z)' : 'Zen mode (Z)';
+}
+$('zen').onclick = () => setZen(!zen);
+addEventListener('keydown', event => {
+  if (event.metaKey || event.ctrlKey || event.altKey || event.repeat || document.querySelector('dialog[open]')) return;
+  if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (event.key === 'z' || event.key === 'Z') { event.preventDefault(); setZen(!zen); }
+});
+// Escape closes the selection or settings first; with nothing open it leaves Zen. Capture runs
+// before the closing handler above, so one press never does both.
+addEventListener('keydown', event => {
+  if (event.key === 'Escape' && zen && !selected && settingsCard.hidden && !document.querySelector('dialog[open]')) setZen(false);
+}, true);
 document.addEventListener('fullscreenchange', updateFullscreenLabel);
 addEventListener('resize', updateFullscreenLabel);
 updateFullscreenLabel().catch(console.error);

@@ -187,5 +187,6 @@ export function createTasksView({ controller, focusTask }) {
   return {
     render(snapshot) { tasks = snapshot.tasks; byId = new Map(tasks.map(task => [task.id, task])); draw(); },
     open(source = 'all') { setFilter(source); setOpen(true); },
+    close() { if (open) setOpen(false); },
   };
 }

@@ -90,6 +90,7 @@ header>*{pointer-events:auto}
 .legend span{display:flex;align-items:center;gap:7px;white-space:nowrap}
 i{display:block;width:7px;height:7px;border-radius:50%}.comet{background:var(--primary);box-shadow:0 0 10px var(--primary)}.grey{background:var(--control)}.settled{background:var(--primary-hover);box-shadow:0 0 8px var(--primary-hover)}
 .control-cluster{display:flex;gap:6px}
+#zen svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 #labels-toggle{color:var(--muted)}#labels-toggle[aria-pressed=true]{color:var(--primary-hover);border-color:var(--primary)}
 
 /* Selection callout, positioned beside the planet by scene.js */
@@ -210,3 +211,9 @@ body.tasks-open :is(.intro,.sources,.scene-hint,#selection,.system-switch,.legen
 .tree-row:is(:hover,:focus-within) .eye,.eye:focus-visible{opacity:1}
 .eye[aria-pressed=true]{opacity:.8;color:var(--muted)}
 .card-more{font-size:12px;margin:6px 0 2px 10px}
+
+/* Zen mode: only the scene and its labels. The Zen button stays in place, invisible until hovered or focused, so the mouse can find the way out. */
+body.zen :is(header,.intro,.scene-hint,.sources,.system-switch,.legend,#completed-preview,.control-cluster>:not(#zen)){visibility:hidden}
+body.zen #zen{opacity:0;border-color:transparent;background:transparent;transition:opacity .2s}
+body.zen #zen:is(:hover,:focus-visible){opacity:.8}
+@media (prefers-reduced-motion:reduce){body.zen #zen{transition:none}}
