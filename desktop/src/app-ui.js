@@ -246,7 +246,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
       rows.set(task.id, item);
     }
     item.task = task;
-    const title = task.id.startsWith('demo:') || task.source === 'ClickUp' ? (task.parentId ? '↳ ' : '') + task.title : '#' + task.externalId + ' ' + task.title;
+    const title = task.id.startsWith('demo:') || task.source === 'ClickUp' ? task.title : '#' + task.externalId + ' ' + task.title;
     item.querySelector('.task-row span').textContent = title;
     item.querySelector('.task-row').title = title + (task.project ? ' · ' + task.project : '') + (!task.upstreamPresent ? ' · No longer in open assignments' : '');
     item.querySelector('.pill').textContent = task.state === 'not-started' ? '' : stateLabel(task.state);
