@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { delimiter, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from 'vite';
@@ -27,6 +27,16 @@ if (existsSync(resolve(cargo, 'bin/cargo'))) {
   env.CARGO_HOME = cargo;
   env.RUSTUP_HOME = rustup;
   env.PATH = `${resolve(cargo, 'bin')}${delimiter}${env.PATH}`;
+}
+// Ad-hoc signatures change every build, so Keychain asks again after each rebuild.
+// Sign with a stable local identity when one is installed.
+const identity = 'Orbit Local';
+if (process.platform === 'darwin' && !env.APPLE_SIGNING_IDENTITY) {
+  try {
+    if (execFileSync('security', ['find-identity', '-p', 'codesigning'], { encoding: 'utf8' }).includes(`"${identity}"`)) {
+      env.APPLE_SIGNING_IDENTITY = identity;
+    }
+  } catch {}
 }
 const cli = resolve(desktop, 'node_modules/@tauri-apps/cli/tauri.js');
 const child = spawn(process.execPath, [cli, ...args], {
