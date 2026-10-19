@@ -731,7 +731,7 @@ function updateOverlays(now) {
     ringPoint.set(centre.x + Math.cos(facing + lean) * radius, centre.y, centre.z + Math.sin(facing + lean) * radius).project(camera);
     // Task titles win: a ring label steps aside when it would cover one.
     const rect = { x: (ringPoint.x * 0.5 + 0.5) * innerWidth, y: (-ringPoint.y * 0.5 + 0.5) * innerHeight + 6, w: 96, h: 18 };
-    el.hidden = travel.active || placedLabels.some(r => overlaps(rect, r)) || panelRects.some(r => overlaps(rect, r));
+    el.hidden = !showLabels || travel.active || placedLabels.some(r => overlaps(rect, r)) || panelRects.some(r => overlaps(rect, r));
     el.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
   }
   // Station: hover brightens it; an unconfigured Redmine connection makes it pulse softly.
