@@ -18,13 +18,22 @@ export function createTasksView({ controller, focusTask }) {
   let tasks = [];
   let byId = new Map();
   let open = false;
+  let closing;
   let showHidden = true;
   let filter = 'all';
   let query = '';
 
   function setOpen(value) {
     open = value;
-    view.hidden = !value;
+    clearTimeout(closing);
+    view.classList.remove('closing');
+    // Closing plays tasks-out (140ms) first; reopening mid-close just plays tasks-in again.
+    // A timer, not animationend, so a hidden window (paused animations) still closes.
+    if (value || view.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) view.hidden = !value;
+    else {
+      view.classList.add('closing');
+      closing = setTimeout(() => { view.classList.remove('closing'); view.hidden = true; }, 140);
+    }
     document.body.classList.toggle('tasks-open', value);
     for (const button of document.querySelectorAll('.nav-tabs [data-view]')) {
       if (button.dataset.view === (value ? 'tasks' : 'overview')) button.setAttribute('aria-current', 'page');
