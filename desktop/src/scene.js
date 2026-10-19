@@ -448,7 +448,7 @@ function switchSystem(target, then) {
     style: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'dip' : travelStyle,
     from: systemCentres[from], to: systemCentres[target], fromView: from, toView: target,
     target: controls.target, centres: systemCentres,
-    onCut() { view = target; ui.showSystem(target); updateEmptyScene(); },
+    onCut() { view = target; ui.showSystem(target); },
     onDone() {
       controls.target.copy(systemCentres[target]);
       controls.target0.copy(systemCentres[target]);
@@ -466,12 +466,6 @@ function focusTask(id) {
   if (!planet) return;
   if (homeOf(planet) === view) select(planet);
   else switchSystem(homeOf(planet), () => select(planet));
-}
-let lastTasks = [];
-function updateEmptyScene() {
-  const completed = view === 'completed';
-  $('empty-scene').textContent = completed ? 'Nothing completed yet' : 'No tasks in orbit yet';
-  $('empty-scene').hidden = lastTasks.some(task => (task.state === 'completed') === completed);
 }
 function findOpenPhase(orbit) {
   const fullCircle = Math.PI * 2;
@@ -1005,8 +999,6 @@ function applySnapshot(snapshot, { settle, animate }) {
   foreground.visible = preferences.rocks; $('rocks').checked = preferences.rocks;
   // Pulse the station until at least one source is connected.
   stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);
-  lastTasks = sceneTasks;
-  updateEmptyScene();
   if (renderer.getPixelRatio() !== preferences.resolution) { renderer.setPixelRatio(preferences.resolution); resize(); }
   $('labels-toggle').setAttribute('aria-pressed', String(showLabels));
   $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
