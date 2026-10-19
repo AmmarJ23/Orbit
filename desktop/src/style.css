@@ -219,6 +219,9 @@ body.tasks-open :is(.intro,.sources,.scene-hint,#selection,.system-switch,.legen
 
 /* Zen mode: only the scene and its labels. The Zen button stays in place, invisible until hovered or focused, so the mouse can find the way out. */
 body.zen :is(header,.intro,.scene-hint,.sources,.system-switch,.legend,#completed-preview,.control-cluster>:not(#zen)){visibility:hidden}
+body.zen :is(header,.intro,.scene-hint,.sources,.system-switch,.legend,.control-cluster>:not(#zen)){opacity:0}
 body.zen #zen{opacity:0;border-color:transparent;background:transparent;transition:opacity .2s}
 body.zen #zen:is(:hover,:focus-visible){opacity:.8}
-@media (prefers-reduced-motion:reduce){body.zen #zen{transition:none}}
+/* Panels fade while Zen switches; visibility follows the fade, so hidden panels still take no clicks. */
+body.zen-shift :is(header,.intro,.scene-hint,.sources,.system-switch,.legend,.control-cluster>*){transition:opacity .22s ease,visibility .22s}
+@media (prefers-reduced-motion:reduce){body.zen #zen,body.zen-shift :is(header,.intro,.scene-hint,.sources,.system-switch,.legend,.control-cluster>*){transition:none}}

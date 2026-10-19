@@ -774,9 +774,14 @@ async function updateFullscreenLabel() {
 // Zen mode hides every panel and control, leaving the scene, its labels and planet selection.
 // It is a temporary view, so it is never saved.
 let zen = false;
+let zenShiftTimer = 0;
 function setZen(value) {
   zen = value;
   if (zen) tasksView.close();
+  // The fade runs only while switching, so other ways of hiding these panels stay instant.
+  document.body.classList.add('zen-shift');
+  clearTimeout(zenShiftTimer);
+  zenShiftTimer = setTimeout(() => document.body.classList.remove('zen-shift'), 300);
   document.body.classList.toggle('zen', zen);
   $('zen').setAttribute('aria-pressed', String(zen));
   $('zen').title = zen ? 'Exit Zen mode (Z)' : 'Zen mode (Z)';
