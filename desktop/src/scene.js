@@ -673,6 +673,7 @@ $('debug').onchange = e => setDebug(e.target.checked);
 setDebug(debug);
 $('nebula').onchange = e => controller.savePreferences({ nebula: e.target.checked });
 $('rocks').onchange = e => controller.savePreferences({ rocks: e.target.checked });
+$('completion-preview').onchange = e => controller.savePreferences({ completionPreview: e.target.checked });
 
 // Station settings card: anchored beside the station, closed by Esc or an outside click.
 const settingsCard = $('settings');
@@ -997,6 +998,7 @@ function applySnapshot(snapshot, { settle, animate }) {
   stars.visible = preferences.stars;
   depthLayer.visible = preferences.nebula; $('nebula').checked = preferences.nebula;
   foreground.visible = preferences.rocks; $('rocks').checked = preferences.rocks;
+  completionSystem.allowPreview(preferences.completionPreview); $('completion-preview').checked = preferences.completionPreview;
   // Pulse the station until at least one source is connected.
   stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);
   if (renderer.getPixelRatio() !== preferences.resolution) { renderer.setPixelRatio(preferences.resolution); resize(); }

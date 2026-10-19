@@ -53,6 +53,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
   let lastCaption = '';
   let travelEnergy = 0; // Set while the camera dives through the core between systems.
   let previewEnabled = true; // Off while the completed system itself is on screen.
+  let previewAllowed = true; // The user's setting.
 
   // Photon ring and polar jets: one shared flare, restarted by each completion that ends.
   const photonRing = new THREE.Mesh(new THREE.RingGeometry(1, 1.06, 128, 1), new THREE.MeshBasicMaterial({ color: hot, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -479,7 +480,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
       latestName = glimpseName;
       visibleCount = 1;
     }
-    if (show && previewEnabled) {
+    if (show && previewEnabled && previewAllowed) {
       closing = 0;
       panel.hidden = false;
       panel.style.opacity = String(previewOpacity);
@@ -487,7 +488,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
       const text = `${visibleCount > 1 ? `${visibleCount} worlds` : latestName} · ${previewPhase === 'forming' ? 'Reassembling' : previewPhase === 'settled' ? 'Settled in orbit' : 'Emerging'}`;
       // A live region: only write when the words change, so screen readers announce once.
       if (text !== lastCaption) caption.textContent = lastCaption = text;
-    } else if (!previewEnabled) {
+    } else if (!previewEnabled || !previewAllowed) {
       panel.hidden = true;
       closing = 0;
     } else if (!panel.hidden && !journeys.size) {
@@ -590,6 +591,7 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
     complete, update, render, restore, remove, settleAll, positionOf, world,
     settledMeshes: () => settled.map(item => item.mesh),
     setPreview(enabled) { previewEnabled = enabled; },
+    allowPreview(allowed) { previewAllowed = allowed; },
     setTravelEnergy(value) { travelEnergy = value; },
   };
 }
