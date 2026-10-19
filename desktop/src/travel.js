@@ -43,7 +43,8 @@ export function createSystemTravel({ camera, veil, markers }) {
       const lift = Math.sin(Math.PI * move);
       look.lerpVectors(t.from, t.to, turn);
       pos.lerpVectors(t.from, t.to, move).addScaledVector(t.offset, 1 + 0.5 * lift).addScaledVector(up, 8 * lift);
-      out.sky.lerpVectors(t.from, t.to, 0.9 * move); // A little star drift sells the distance.
+      // The sky lags the camera mid-flight for a little star drift, but lands with it so nothing snaps.
+      out.sky.lerpVectors(t.from, t.to, move - 0.1 * Math.sin(Math.PI * move));
     },
     // Pull back and turn to the destination, a small light on the horizon, then jump at it with
     // streaking stars and drop out in a glow.
