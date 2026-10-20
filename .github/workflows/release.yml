@@ -1,0 +1,61 @@
+# Builds a universal macOS DMG when a version tag (v0.2.0, ...) is pushed
+# and attaches it to a draft GitHub release for review before publishing.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      # The release is named after tauri.conf.json's version, so a mismatched tag would ship the wrong number.
+      - name: Check tag matches app version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match tauri.conf.json version $version"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - run: npm ci
+
+      # Go through the launcher with --live so the frontend and native demo flags can never disagree.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tauriScript: node scripts/tauri.mjs --live
+          args: --target universal-apple-darwin --bundles dmg
+          tagName: ${{ github.ref_name }}
+          releaseName: Orbit __VERSION__
+          releaseBody: |
+            Orbit isn't notarized yet, so macOS will block the first launch.
+            After dragging Orbit to Applications, run once in Terminal:
+
+                xattr -dr com.apple.quarantine /Applications/Orbit.app
+          releaseDraft: true
