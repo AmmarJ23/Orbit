@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbit — your tasks, as planets</title>
+  <meta name="description" content="Orbit is a local Mac app that turns your Redmine and ClickUp assignments into a low-poly solar system for your second screen. Finished work falls into the core.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0C1222">
+  <link rel="icon" href="assets/favicon.ico" sizes="48x48">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=TikTok+Sans:wdth,wght@75..150,300..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js" } }</script>
+</head>
+<body>
+  <canvas class="sky" data-sky role="img" aria-label="A live low-poly solar system. Blue planets circle a dark core on two rings, grey ones wait on a dashed outer ring. Scrolling flies through it; the pointer pulls the dust and orbits toward it like a small mass."></canvas>
+  <div class="labels" data-labels aria-hidden="true"></div>
+
+  <nav class="bar" aria-label="Main">
+    <a class="bar__mark" href="#top" aria-label="Orbit, back to top"><img src="assets/orbit-symbol-dark.svg" alt="" width="36" height="36"></a>
+    <a class="bar__link" href="https://github.com/AmmarJ23/Orbit">GitHub</a>
+    <a class="bar__action" href="https://github.com/AmmarJ23/Orbit/releases/latest" data-download>Download</a>
+  </nav>
+
+  <main>
+    <section class="chapter chapter--hero" id="top" data-stop>
+      <div class="chapter__pin">
+        <div class="hero">
+          <img class="hero__logo" src="assets/orbit-lockup-horizontal-dark.svg" alt="Orbit" width="655" height="256">
+          <h1 class="hero__title">Your tasks,<br> as planets</h1>
+          <p class="hero__lead">A Mac app that turns your Redmine and ClickUp assignments into a quiet solar system for your second screen.</p>
+          <a class="button" href="https://github.com/AmmarJ23/Orbit/releases/latest" data-download>Download for Mac</a>
+          <p class="hero__note"><span data-version>Latest release</span>, universal DMG, unsigned. On first launch, right-click Orbit and choose Open.</p>
+        </div>
+        <p class="hint" aria-hidden="true"><span class="hint__pointer">Move your pointer through the dust.</span><span class="hint__touch">Touch the sky to pull it.</span> Scroll to fly in.</p>
+      </div>
+    </section>
+
+    <section class="chapter chapter--left" data-stop aria-labelledby="c-waiting">
+      <div class="chapter__pin">
+        <h2 class="line" id="c-waiting">Work waits<br> out here</h2>
+        <aside class="callout" data-card="Echo" data-ui aria-label="Task callout">
+          <h3 data-task></h3>
+          <p class="callout__meta" data-meta></p>
+          <p class="callout__hint">Unstarted tasks park on the dashed ring until you start them.</p>
+          <div class="callout__actions">
+            <button class="primary" data-action="enter">Enter orbit</button>
+            <button data-action="deorbit">De-orbit</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="chapter chapter--right" data-stop aria-labelledby="c-clickup">
+      <div class="chapter__pin">
+        <h2 class="line" id="c-clickup">ClickUp,<br> the outer ring</h2>
+        <aside class="callout" data-card="Mira" data-ui aria-label="Task callout">
+          <h3 data-task></h3>
+          <p class="callout__meta" data-meta></p>
+          <p class="callout__hint">Subtasks arrive as planets of their own.</p>
+          <div class="callout__actions">
+            <button data-action="deorbit">De-orbit</button>
+            <button data-action="complete">Complete</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="chapter chapter--left" data-stop aria-labelledby="c-redmine">
+      <div class="chapter__pin">
+        <h2 class="line" id="c-redmine">Redmine,<br> closer in</h2>
+        <aside class="callout" data-card="Lyra" data-ui aria-label="Task callout">
+          <h3 data-task></h3>
+          <p class="callout__meta" data-meta></p>
+          <p class="callout__hint">Complete it and watch where it goes.</p>
+          <div class="callout__actions">
+            <button data-action="deorbit">De-orbit</button>
+            <button class="primary" data-action="complete">Complete</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="chapter chapter--low" data-stop aria-labelledby="c-core">
+      <div class="chapter__pin">
+        <h2 class="line" id="c-core">Done falls<br> into the core</h2>
+      </div>
+    </section>
+
+    <section class="chapter chapter--map" data-stop aria-labelledby="c-local">
+      <div class="chapter__pin">
+        <h2 class="line" id="c-local">Nothing leaves<br> your Mac</h2>
+        <aside class="sync" data-ui aria-label="Sync status">
+          <p class="sync__head"><b>Sync</b> <span data-sync-clock>every 20 s</span></p>
+          <dl>
+            <div><dt>Redmine</dt><dd>GET only</dd></div>
+            <div><dt>ClickUp</dt><dd>GET only</dd></div>
+            <div><dt>API keys</dt><dd>macOS Keychain</dd></div>
+            <div><dt>Tasks</dt><dd>orbit.sqlite, on this Mac</dd></div>
+            <div><dt>Account</dt><dd>None needed</dd></div>
+          </dl>
+        </aside>
+      </div>
+    </section>
+
+    <section class="chapter chapter--zen" data-stop aria-labelledby="c-zen">
+      <div class="chapter__pin">
+        <div class="zen">
+          <img class="zen__mark" src="assets/orbit-symbol-dark.svg" alt="" width="256" height="256">
+          <h2 class="line" id="c-zen">Leave it running</h2>
+          <a class="button" href="https://github.com/AmmarJ23/Orbit/releases/latest" data-download>Download for Mac</a>
+          <p class="zen__note">Everything in orbit.</p>
+        </div>
+        <footer class="foot">
+          <a href="https://github.com/AmmarJ23/Orbit">Source on GitHub</a>
+          <a href="https://github.com/AmmarJ23/Orbit/releases">All releases</a>
+          <a href="https://github.com/AmmarJ23">Made by Ammar</a>
+          <span>Not affiliated with Redmine or ClickUp.</span>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="main.js"></script>
+  <script type="module" src="world.js"></script>
+</body>
+</html>

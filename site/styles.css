@@ -1,0 +1,183 @@
+/* Orbit site. One sky under the whole page; tokens are the app's own palette (design/PALETTE.md). */
+:root {
+  --night: #0C1222;
+  --surface: #151E32;
+  --raised: #1E2A43;
+  --border: #354563;
+  --ink: #F2F6FF;
+  --soft: #A6B5CF;
+  --comet: #79BFFF;
+  --ice: #A2D3FF;
+  --glass: #151E32B8;
+
+  --font: 'TikTok Sans', ui-sans-serif, system-ui, sans-serif;
+  --step-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
+  --step-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+  --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  --step-line: clamp(2.25rem, 1rem + 5.4vw, 6.25rem);
+
+  --margin: clamp(16px, 2.6vw, 40px);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--step-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+h1, h2, h3, p, dl, dd { margin: 0; }
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ice); outline-offset: 3px; }
+::selection { background: var(--comet); color: var(--night); }
+
+.sky { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.labels { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.label { position: absolute; top: 0; left: 0; white-space: nowrap; opacity: 0; will-change: transform; transition: opacity 300ms ease; }
+.label b { display: block; font-size: 14px; font-weight: 600; line-height: 16px; color: #E3F1FF; }
+.label small { display: block; font-size: 14px; line-height: 16px; color: var(--soft); }
+
+/* One button shape: square, flat. */
+.button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 54px; padding: 0 30px;
+  background: var(--comet); color: var(--night);
+  font-weight: 650; font-size: var(--step-body); text-decoration: none;
+  transition: background-color 160ms ease, transform 200ms var(--ease-out);
+}
+.button:hover { background: var(--ice); }
+.button:active { transform: scale(0.97); }
+
+.bar {
+  position: fixed; inset: 0 0 auto; z-index: 5;
+  display: flex; align-items: center; gap: 28px;
+  padding: 22px var(--margin);
+}
+.bar__mark { margin-right: auto; }
+.bar__mark img { width: 36px; transition: transform 600ms var(--ease-out); }
+.bar__mark:hover img { transform: rotate(-24deg); }
+.bar__link, .bar__action { text-decoration: none; font-size: var(--step-small); color: var(--soft); transition: color 160ms ease; }
+.bar__link:hover { color: var(--ink); }
+.bar__action { color: var(--comet); font-weight: 600; }
+.bar__action:hover { color: var(--ice); }
+
+/* Chapters: tall scroll runs whose content pins to the screen while the camera flies. */
+main { position: relative; z-index: 2; pointer-events: none; }
+main a, main button, main [data-ui] { pointer-events: auto; }
+.chapter { position: relative; height: 190svh; }
+.chapter--hero { height: 150svh; }
+.chapter--zen { height: 150svh; }
+.chapter__pin { position: sticky; top: 0; height: 100svh; padding: 0 var(--margin); overflow: clip; }
+
+.line {
+  position: absolute; bottom: clamp(48px, 9svh, 96px);
+  font-weight: 800; font-stretch: 150%; text-transform: uppercase;
+  font-size: var(--step-line); line-height: 0.94; letter-spacing: -0.015em;
+  max-width: 14ch;
+}
+.chapter--left .line { left: var(--margin); }
+.chapter--right .line { right: var(--margin); text-align: right; }
+.chapter--map .line { left: var(--margin); top: clamp(104px, 15svh, 150px); bottom: auto; font-size: clamp(2.125rem, 4.2vw, 4.75rem); }
+.chapter--low .line { left: 0; right: 0; margin-inline: auto; width: max-content; text-align: center; }
+
+/* Hero: the name runs wide and low under the sky's centre, the line beneath it. */
+.hero {
+  position: absolute; left: 0; right: 0; bottom: clamp(40px, 7svh, 88px);
+  display: grid; justify-items: center; text-align: center; padding: 0 var(--margin);
+}
+.hero__logo { width: auto; height: min(clamp(56px, 6.4vw, 92px), 8svh); }
+.hero__title {
+  margin-top: clamp(14px, 1.8vw, 26px);
+  font-weight: 800; font-stretch: 150%; text-transform: uppercase;
+  font-size: min(var(--step-line), 10.5svh); line-height: 0.94; letter-spacing: -0.015em;
+}
+.hero__lead { max-width: 46ch; margin-top: min(22px, 2.4svh); font-size: min(var(--step-lead), 3svh); line-height: 1.35; }
+.hero .button { margin-top: min(30px, 3.2svh); }
+.hero__note { margin-top: 16px; max-width: 52ch; font-size: var(--step-body); color: var(--soft); }
+.hint { position: absolute; right: var(--margin); top: 50%; max-width: 15ch; font-size: var(--step-body); color: var(--soft); text-align: right; }
+.hint__touch { display: none; }
+@media (hover: none) { .hint__pointer { display: none; } .hint__touch { display: inline; } }
+
+/* Interface fragments rebuilt from the app (its own glass, borders and corners). */
+.callout, .sync {
+  position: fixed; top: 0; left: 0; z-index: 3;
+  background: var(--glass); border: 1px solid var(--border); border-radius: 12px; /* taste-skill-ignore: the app's own callout, rebuilt (data-ui) */
+  -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); /* taste-skill-ignore: app glass (data-ui) */
+  color: var(--ink); font-size: 16px; line-height: 1.5;
+  opacity: 0; transition: opacity 200ms ease;
+}
+.callout { width: 290px; padding: 16px 18px; will-change: transform; }
+.callout h3 { font-size: 17px; font-weight: 600; line-height: 1.35; }
+.callout__meta { margin-top: 4px; color: var(--ice); }
+.callout__meta[data-state="waiting"] { color: var(--soft); }
+.callout__hint { margin-top: 8px; color: var(--soft); }
+.callout__actions { display: flex; gap: 6px; margin-top: 14px; }
+.callout__actions button {
+  flex: 1; min-height: 36px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 8px; background: #151E32D9; color: var(--ink); /* taste-skill-ignore: app button (data-ui) */
+  font: inherit; font-size: 15px; cursor: pointer;
+  transition: background-color 160ms ease, transform 160ms var(--ease-out);
+}
+.callout__actions button:hover:not(:disabled) { background: var(--raised); }
+.callout__actions button:active:not(:disabled) { transform: scale(0.96); }
+.callout__actions button.primary { background: var(--comet); border-color: var(--comet); color: var(--night); font-weight: 600; }
+.callout__actions button.primary:hover:not(:disabled) { background: var(--ice); }
+.callout__actions button:disabled { opacity: 0.5; cursor: default; }
+.callout__actions button[hidden] { display: none; }
+
+.sync { position: absolute; top: auto; bottom: clamp(32px, 9svh, 96px); left: var(--margin); width: min(360px, calc(100% - 2 * var(--margin))); padding: 18px 20px; opacity: 1; }
+.sync__head { display: flex; justify-content: space-between; font-size: 15px; color: var(--soft); }
+.sync__head b { color: var(--ink); font-weight: 600; font-size: 17px; }
+.sync dl { margin-top: 12px; display: grid; gap: 2px; }
+.sync dl div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 10px; border-radius: 8px; background: #64789B1A; }
+.sync dt { color: var(--soft); }
+.sync dd { color: var(--ink); text-align: right; }
+
+/* Zen: everything else fades; one line, one button. */
+.zen { position: absolute; inset: 0; display: grid; align-content: start; justify-content: center; padding-top: 17svh !important; justify-items: center; text-align: center; padding: 0 var(--margin); }
+.zen .line { position: static; max-width: none; }
+.zen__mark { width: clamp(64px, 6vw, 96px); margin-bottom: 28px; }
+.zen .button { margin-top: 36px; }
+.zen__note { margin-top: 18px; max-width: 36ch; color: var(--soft); font-size: var(--step-body); }
+.foot {
+  position: absolute; left: var(--margin); right: var(--margin); bottom: 24px;
+  display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: var(--step-body); color: var(--soft);
+}
+.foot span { margin-left: auto; }
+.foot a { color: var(--ink); text-decoration: underline 2px transparent; text-underline-offset: 6px; transition: text-decoration-color 200ms ease, text-underline-offset 300ms var(--ease-out); }
+.foot a:hover { text-decoration-color: currentColor; text-underline-offset: 3px; }
+
+/* Without a sky the page still reads: each chapter collapses to its words. */
+.no-webgl .chapter { height: auto; }
+.no-webgl .chapter__pin { position: relative; height: auto; min-height: 70svh; }
+
+@media (max-width: 759px) {
+  .bar__link { display: none; }
+  .bar__mark { margin-right: auto; }
+  .chapter { height: 170svh; }
+  .line, .hero__title { font-stretch: 125%; font-size: 2.125rem; }
+  .line { bottom: auto; top: 96px; }
+  .chapter--right .line { right: auto; left: var(--margin); text-align: left; }
+  .chapter--low .line { width: auto; left: var(--margin); right: auto; margin: 0; text-align: left; }
+  .hero { bottom: 32px; }
+  .hero__logo { height: 48px; }
+  .hero .button { width: 100%; }
+  .hint { display: none; }
+  .callout { left: var(--margin); right: var(--margin); top: auto; bottom: 24px; width: auto; }
+  .sync { bottom: 24px; }
+  .chapter--map .line { top: 96px; font-size: 2.125rem; }
+  .zen .button { width: 100%; }
+  .foot span { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 1ms !important; }
+}
