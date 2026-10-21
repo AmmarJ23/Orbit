@@ -163,7 +163,7 @@ flowchart LR
 - [ ] Gentle sound alerts for new assignments
 - [ ] Full navigation of the completed system
 - [ ] Signed, notarised releases
-- [ ] Windows build
+- [x] Windows build
 
 <br>
 
