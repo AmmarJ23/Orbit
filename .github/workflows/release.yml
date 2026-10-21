@@ -1,5 +1,5 @@
-# Builds a universal macOS DMG when a version tag (v0.2.0, ...) is pushed
-# and attaches it to a draft GitHub release for review before publishing.
+# Builds a universal macOS DMG and a Windows installer when a version tag (v0.2.0, ...) is pushed
+# and attaches them to a draft GitHub release for review before publishing.
 name: Release
 
 on:
@@ -58,4 +58,42 @@ jobs:
             After dragging Orbit to Applications, run once in Terminal:
 
                 xattr -dr com.apple.quarantine /Applications/Orbit.app
+
+            Orbit isn't signed on Windows yet either, so SmartScreen may warn on first run:
+            choose More info → Run anyway.
+          releaseDraft: true
+
+  # Waits for macOS so both upload to the one draft release instead of racing to create two.
+  windows:
+    needs: macos
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tauriScript: node scripts/tauri.mjs --live
+          args: --bundles nsis
+          tagName: ${{ github.ref_name }}
+          releaseName: Orbit __VERSION__
           releaseDraft: true

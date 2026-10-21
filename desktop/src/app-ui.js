@@ -189,6 +189,11 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
     select.replaceChildren(new Option('None', ''), ...names.map(name => new Option(name, name)));
     select.value = saved;
   }
+  // VPN control is macOS-only for now.
+  if (navigator.userAgent.includes('Windows')) {
+    $('redmine-vpn').closest('label').hidden = true;
+    $('redmine-vpn-note').hidden = true;
+  }
   if (live) {
     $('redmine-vpn').onfocus = loadVpns;
     $('redmine-vpn').onchange = async event => {

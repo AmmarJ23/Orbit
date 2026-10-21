@@ -275,8 +275,13 @@ fn main() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
                 save_placement(window.app_handle());
+                // Windows has no Dock to reopen a hidden window from, so closing quits there.
+                #[cfg(not(target_os = "macos"))]
+                let _ = api;
+                #[cfg(target_os = "macos")]
+                api.prevent_close();
+                #[cfg(target_os = "macos")]
                 if let Err(error) = window.hide() {
                     eprintln!("Could not hide Orbit: {error}");
                 } else {
