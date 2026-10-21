@@ -173,5 +173,5 @@ flowchart LR
     <img src="design/logo/masters/orbit-symbol-light.svg" alt="" width="40">
   </picture>
   <br>
-  <sub>Made for a quieter second screen.</sub>
+  <sub>Everything in Orbit.</sub>
 </div>
