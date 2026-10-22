@@ -42,14 +42,15 @@ export function createPlanetNotes({ onPick, onHover, onCreate, onLink }) {
     item.onmouseleave = item.onblur = () => onHover(null);
     return item;
   }
-  // New note for this task, and link an existing one. `labelled` adds text beside the icons.
+  // New note for this task, and link an existing one. `labelled` adds text beside the icons;
+  // otherwise a short tooltip names them, since task titles can be long.
   function actions(className, labelled) {
     const name = task?.title ?? 'this task';
-    return [['create', 'New note for ' + name, 'New note', () => { closePicker(); onCreate(task.id); }],
-      ['link', 'Link a note', 'Link a note', togglePicker]].map(([icon, title, label, onclick]) => {
+    return [['create', 'New note for ' + name, 'New linked note', 'New note', () => { closePicker(); onCreate(task.id); }],
+      ['link', 'Link an existing note to ' + name, 'Link existing note', 'Link a note', togglePicker]].map(([icon, title, tip, label, onclick]) => {
       const button = element('button', className);
       button.type = 'button';
-      button.dataset.tip = title;
+      if (!labelled) button.dataset.tip = tip;
       button.setAttribute('aria-label', title);
       button.innerHTML = icons[icon];
       if (labelled) button.append(element('span', null, label));
