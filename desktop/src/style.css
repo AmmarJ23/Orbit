@@ -167,11 +167,11 @@ button.planet-note-chip{cursor:pointer;color:var(--text)}button.planet-note-chip
 /* Station */
 .station-label{position:fixed;top:0;left:0;margin:0;padding:4px 9px;border:1px solid #79bfff88;border-radius:6px;background:#0c1222cc;color:var(--primary-hover);font-size:11px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:4}
 .station-label.visible{opacity:1}
-.settings-card{position:fixed;top:0;left:0;width:300px;max-height:calc(100dvh - 40px);overflow:auto;padding:18px;z-index:10}
+.settings-card{position:fixed;top:0;left:0;width:340px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 40px);overflow:auto;padding:18px;z-index:10}
 .settings-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-right:28px}
 .settings-head h2{font-size:14px;font-weight:600;margin:0;flex:1}#fps{color:#9cadd2;font-size:11px;font-variant-numeric:tabular-nums}
-.testing-tabs{display:flex;gap:4px;padding:3px;background:var(--bg);border:1px solid var(--border);border-radius:9px;margin-bottom:14px}
-.testing-tabs button{flex:1;border:0;padding:7px 5px;background:transparent;font-size:11px;color:var(--muted)}
+.testing-tabs{display:flex;gap:2px;padding:3px;background:var(--bg);border:1px solid var(--border);border-radius:9px;margin-bottom:14px}
+.testing-tabs button{flex:1 1 auto;border:0;padding:7px 8px;background:transparent;font-size:11px;color:var(--muted)}
 .testing-tabs button[aria-selected=true]{background:var(--raised);color:var(--primary-hover)}
 .actions{display:flex;gap:8px}.actions button,.wide{flex:1;width:100%;margin-top:12px}
 #stats{font-size:10px;color:#8190ae;margin:10px 0 0;font-variant-numeric:tabular-nums}
