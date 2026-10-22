@@ -181,3 +181,69 @@ The user considers the prototype mostly done. The next development phase is the 
 The first milestone is a runnable native Mac app: establish the Tauri/Rust toolchain, host the existing scene, restore window placement, distinguish closing the window from quitting, and pause rendering while hidden. Validate sustained resource use in the native Mac webview as part of this milestone. This supersedes waiting for additional browser-prototype validation before starting the native shell.
 
 Local persistence, secure credential storage, live task integrations, notes and background alerts follow the native foundation. The Redmine integration remains read-only, and Orbit owns its separate To do / Doing / Done state.
+
+## Notes and probes — 22 October 2026
+
+User settled the notes design in a requirements interview. No implementation is requested by this decision alone. Notes are local only, like task state, and never reach Redmine or ClickUp.
+
+### Note model
+
+- A note has a title and a markdown body. Markdown is the stored form.
+- A note links to zero or more tasks. Each link is a separate probe in the scene.
+- A note has an automatically assigned colour (see Colour), an optional pin, and created/edited times.
+- Deleting a note asks for confirmation first, in the Notes tab and in the probe callout alike.
+
+### Probes in the scene
+
+Every note is shown as small man-made probes: one per link, or exactly one when the note is unlinked.
+
+- **Unlinked probes rest at the settings station first, then on an outer belt** (about 11–11.8 units, past the waiting ring). The station has about 10 dock slots. Pinned notes always dock; the remaining slots go first come, first served by when the probe became unlinked; the rest drift on the belt. Pinning when the dock is full pushes the newest unpinned docked probe to the belt. Pins are capped at the slot count. When a slot frees up, the longest-waiting belt probe flies up into it.
+- **Linking** sends a probe out to the planet, where it orbits as a moon. A note's first link uses its resting probe; each further link launches a new one. Unlinking returns the probe to rest if it was the note's last link, otherwise it fades out.
+- **Completion:** the probe falls with the planet but does not crumble. It tumbles in the debris cloud, goes dark at the horizon, relights when the planet reassembles, and orbits it in the completed system. A reopened task brings its probes back with it.
+- **Unlinking from a done task** sends the probe from the completed system back to rest in the active system. The style is a preference: Flight (real path across the gap), Jump (blink out, blink in) or Core (dive into the completed core, emerge from the active core). Reduced motion uses Jump.
+- **Hiding a task** sends its probes interstellar: they burn out past the belt and fade into the stars. Links are kept. Showing the task brings them back. In the Notes tab such a link reads "Out of range · task hidden".
+- **Deleting a note** makes all its probes explode at once in both systems: a small flash in the note's colour and drifting fragments, about 1.5 seconds, no shockwave and no camera shake. Reduced motion fades them out.
+- Visibility rule as elsewhere: when nobody is watching, probes simply settle in their final place.
+
+### Colour and light
+
+- A note's colour is its only identifier; there is no per-note blink rhythm. All of a note's probes share it, and the Notes tab and side card show the same colour dot.
+- Two colour modes, a preference: **Palette** (about 8 hand-tuned glow colours, least-used one assigned at creation and stored) and **Hashed** (hue from a hash of the note id, fixed lightness and saturation, skipping the hues used by Redmine, ClickUp and the core). Every note stores its palette slot regardless of mode, so switching is a cross-fade and switching back restores the same colours. Colours never change when a note is edited.
+- **Probe blink** (preference, on by default): each probe occasionally pulses once, slowly, at random unsynchronised intervals, for atmosphere only. Off under reduced motion.
+- Selecting or hovering a probe brightens all of that note's probes, in both systems, whatever the blink setting.
+
+### Probe callout
+
+Clicking a probe opens a callout like the planet one:
+
+- Colour dot and title.
+- Rendered markdown preview cut off at about 5 lines or 250–300 characters, with a fade. Headings shrink to body size.
+- Link tags with each linked task's title and source icon. The tag for the planet this probe orbits is highlighted. Clicking a tag selects that planet, travelling to the other system if needed. Hidden tasks' tags are dimmed "Out of range". An unlinked probe shows "Unlinked".
+- **Open in Notes**, plus icon buttons for pin, link (inline searchable task picker), unlink (this probe's link only; hidden when resting) and delete (inline confirmation).
+
+### Notes tab
+
+Replaces the disabled Notes tab in the header and uses the Tasks tab's glass panel.
+
+- Two views, remembered: **List** (notes on the left, editor on the right) and **Grid** (cards with a coloured top edge; clicking opens the editor as a sheet).
+- Pinned notes are grouped at the top in both views.
+- Header: search (titles and bodies), **Sort** and **Filter** buttons, view toggle, New note.
+- Sort (remembered): last edited, created, title A–Z, colour, with an ascending/descending toggle. Sort applies within the pinned and other groups.
+- Filter (combinable, count badge when active): link state (all, unlinked, linked), probe location (docked, belt, in orbit, completed system, out of range), linked source (Redmine, ClickUp), colour.
+- Editor: **Markdown** tab (raw text) and **Rich** tab (document-style, no visible markup, formatting toolbar on selection), editing the same markdown. Rich only writes markdown back after an edit there, so viewing never normalises the text. The last used tab is remembered. An Obsidian-style live editor (markup shown only on the cursor line) remains a candidate for a later third mode.
+- Rendered markdown (Rich tab, callout, side card) is sanitised before it reaches the webview.
+- Empty state invites writing the first note and explains probes in one line.
+
+### Side card
+
+The existing "Personal notes" side card works like the source cards: count, up to 8 rows with pinned notes first, then "n more · Open in Notes".
+
+### Preferences
+
+New Motion & quality settings, possibly grouped under Notes: probe return style (Flight, Jump, Core), probe blink, note colour mode (Palette, Hashed). Reduced motion overrides return style to Jump and turns blink off.
+
+### Deferred
+
+- Whether "interstellar" becomes a place you can visit.
+- Obsidian-style editor mode.
+- The three return styles may ship one at a time behind the setting.
