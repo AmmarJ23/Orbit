@@ -1112,7 +1112,7 @@ tasksView = createTasksView({ controller: () => controller, focusTask, setView }
 notesView = createNotesView({ controller: () => controller, focusTask, setView });
 const probeCallout = createProbeCallout({ controller: () => controller, focusTask, openNote: id => notesView.openNote(id) });
 ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem, openTasks: source => { tasksView.filter(source); setView('tasks'); } });
-for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
+for (const input of document.querySelectorAll('.prefs-panel input, .prefs-panel select, #pause, #labels-toggle')) input.disabled = true;
 async function boot() {
   let repository;
   if (DEMO) {

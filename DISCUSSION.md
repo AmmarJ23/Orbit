@@ -212,7 +212,7 @@ Every note is shown as small man-made probes: one per link, or exactly one when 
 - **Belt:** probes beyond the docks drift slowly at about 11–11.8 units, with a very faint dotted guide and no solid ring.
 - **Moons:** each link has its own small orbit, spaced by link order and tilted differently so several moons don't overlap, with no trails. The same applies in the completed system.
 - **Hover and select:** hovering a probe shows the note title as a small tag. Probes have no permanent labels.
-- **Built 22 October 2026** (desktop/src/probes.js, probe-callout.js). Settings: Probe style, Station docks, Probe return and Probe blink under Motion & quality. Orbits and belt drift follow simulation time, so Pause motion stops them; flights, fades, interstellar exits and explosions answer the user's own actions and run on real time.
+- **Built 22 October 2026** (desktop/src/probes.js, probe-callout.js). Settings: Note colours, Probe style, Station docks, Probe return and Probe blink in the station's Notes tab (Motion & quality was later split into Motion, Scenery and Notes). Orbits and belt drift follow simulation time, so Pause motion stops them; flights, fades, interstellar exits and explosions answer the user's own actions and run on real time.
 
 ### Colour and light
 

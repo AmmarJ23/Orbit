@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Camera choreography between the active and completed systems, chosen in Motion & quality.
+// Camera choreography between the active and completed systems, chosen in the Motion settings tab.
 // Each style is a pure function of progress u in [0, 1]: it poses the camera and sets the veil,
 // star streaks and core glow.
 export const travelStyles = [

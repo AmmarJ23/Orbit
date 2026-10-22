@@ -326,7 +326,7 @@ export function createAppUI({ controller, selectTask, selectedId, switchSystem, 
         for (const input of document.querySelectorAll(`#${sources[source].form} input, #${sources[source].form} select`)) input.disabled = value;
         if (lastSnapshot) render(lastSnapshot);
       }
-      if (id === 'preferences') for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = value;
+      if (id === 'preferences') for (const input of document.querySelectorAll('.prefs-panel input, .prefs-panel select, #pause, #labels-toggle')) input.disabled = value;
     },
     error(message) { $('error').textContent = message; $('error').hidden = !message; },
   };

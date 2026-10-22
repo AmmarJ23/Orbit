@@ -117,7 +117,9 @@
   <button id="connection-tab" type="button" role="tab" aria-selected="true" aria-controls="connection-panel">Redmine</button>
   <button id="clickup-tab" type="button" role="tab" aria-selected="false" aria-controls="clickup-panel" tabindex="-1">ClickUp</button>
   <!-- live:end -->
-  <button id="motion-tab" type="button" role="tab" aria-selected="false" aria-controls="motion-panel" tabindex="-1">Motion & quality</button></div>
+  <button id="motion-tab" type="button" role="tab" aria-selected="false" aria-controls="motion-panel" tabindex="-1">Motion</button>
+  <button id="scenery-tab" type="button" role="tab" aria-selected="false" aria-controls="scenery-panel" tabindex="-1">Scenery</button>
+  <button id="notes-settings-tab" type="button" role="tab" aria-selected="false" aria-controls="notes-settings-panel" tabindex="-1">Notes</button></div>
   <!-- demo:start -->
   <section id="planets-panel" role="tabpanel" aria-labelledby="planets-tab">
     <p class="note">Demo data resets when Orbit restarts. Use New task to add planets.</p>
@@ -138,24 +140,28 @@
     <p id="clickup-feedback" role="status"></p>
   </section>
   <!-- live:end -->
-  <section id="motion-panel" role="tabpanel" aria-labelledby="motion-tab" hidden>
+  <section id="motion-panel" class="prefs-panel" role="tabpanel" aria-labelledby="motion-tab" hidden>
     <label for="speed">Orbit speed <output id="speed-value">1×</output></label><input id="speed" type="range" min="0" max="3" step="0.1" value="1">
     <label for="transition">System transition<select id="transition" aria-describedby="transition-note"></select></label>
     <p class="note" id="transition-note"></p>
     <div class="pair"><label>Frame limit<select id="frame-limit"><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">Uncapped</option></select></label><label>Resolution<select id="resolution"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select></label></div>
+    <label class="check"><input id="debug" type="checkbox"> Show frame rate</label>
+    <div class="actions"><button id="pause" type="button">Pause motion</button></div><p id="stats" hidden></p>
+  </section>
+  <section id="scenery-panel" class="prefs-panel" role="tabpanel" aria-labelledby="scenery-tab" hidden>
+    <label class="check"><input id="stars" type="checkbox" checked> Star field</label>
+    <label class="check"><input id="black-sky" type="checkbox"> Black sky</label>
+    <label class="check"><input id="nebula" type="checkbox" checked> Nebula</label>
+    <label class="check"><input id="rocks" type="checkbox" checked> Foreground rocks</label>
+    <label class="check"><input id="completion-preview" type="checkbox" checked> Completed system preview</label>
+  </section>
+  <section id="notes-settings-panel" class="prefs-panel" role="tabpanel" aria-labelledby="notes-settings-tab" hidden>
     <label for="note-colors">Note colours<select id="note-colors"><option value="palette">Palette</option><option value="hashed">Hashed</option></select></label>
     <p class="note" id="note-colors-note">Palette uses eight hand-tuned colours, so the first notes never share one. Hashed gives every note its own hue.</p>
     <div class="pair"><label>Probe style<select id="probe-style"><option value="dish">Dish probe</option><option value="satellite">Satellite</option></select></label><label>Station docks<select id="dock-style"><option value="ring">Ring berths</option><option value="rack">Mast rack</option></select></label></div>
     <label for="probe-return">Probe return<select id="probe-return" aria-describedby="probe-return-note"><option value="flight">Flight</option><option value="jump">Jump</option><option value="core">Core</option></select></label>
     <p class="note" id="probe-return-note"></p>
     <label class="check"><input id="probe-blink" type="checkbox" checked> Probe blink</label>
-    <label class="check"><input id="stars" type="checkbox" checked> Star field</label>
-    <label class="check"><input id="black-sky" type="checkbox"> Black sky</label>
-    <label class="check"><input id="nebula" type="checkbox" checked> Nebula</label>
-    <label class="check"><input id="rocks" type="checkbox" checked> Foreground rocks</label>
-    <label class="check"><input id="completion-preview" type="checkbox" checked> Completed system preview</label>
-    <label class="check"><input id="debug" type="checkbox"> Show frame rate</label>
-    <div class="actions"><button id="pause" type="button">Pause motion</button></div><p id="stats" hidden></p>
   </section>
 </section>
 
