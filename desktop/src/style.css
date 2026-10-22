@@ -147,7 +147,8 @@ button.planet-note-chip{cursor:pointer;color:var(--text)}button.planet-note-chip
 .probe-callout h2{display:flex;align-items:center;gap:8px}
 .probe-callout h2 span{min-width:0;overflow-wrap:anywhere}
 .probe-callout svg.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
-.probe-preview{margin-top:8px;max-height:7.2em}
+.note-card-preview.probe-preview{margin-top:8px;max-height:9em;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;pointer-events:auto;-webkit-mask-image:linear-gradient(transparent,#000 var(--fade-top,0px),#000 calc(100% - var(--fade-bottom,0px)),transparent);mask-image:linear-gradient(transparent,#000 var(--fade-top,0px),#000 calc(100% - var(--fade-bottom,0px)),transparent)}
+.probe-preview::-webkit-scrollbar{display:none}
 .probe-preview[hidden]{display:none}
 .probe-links{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
 .probe-links .note-chip.here{border-color:var(--note-here,#79bfff99);color:var(--text)}

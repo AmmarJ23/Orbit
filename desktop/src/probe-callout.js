@@ -4,7 +4,7 @@ import { renderMarkdown } from './markdown.js';
 import { DOCK_SLOTS, logos, noteColor, linkStatus, taskLabel, noteTitle, locationLabels, restingPlaces } from './notes-model.js';
 
 const $ = id => document.getElementById(id);
-const PREVIEW = 280; // Characters of markdown before the cut-off fade.
+const PREVIEW_FADE = 26; // Longest fade on the scrolling preview, in pixels.
 const PICKER_ROWS = 40;
 const stateOrder = { 'in-progress': 0, 'not-started': 1, completed: 2 };
 const element = (tag, className, text) => Object.assign(document.createElement(tag), className ? { className } : {}, text != null ? { textContent: text } : {});
@@ -16,6 +16,13 @@ export function createProbeCallout({ controller, focusTask, openNote, onClose })
   let confirming = false;
 
   const note = () => probe && notes.get(probe.noteId);
+  // Fades the preview on whichever edge has more to scroll, growing with the distance left.
+  function fadePreview() {
+    const preview = $('probe-preview');
+    const below = preview.scrollHeight - preview.clientHeight - preview.scrollTop;
+    preview.style.setProperty('--fade-top', Math.min(PREVIEW_FADE, preview.scrollTop) + 'px');
+    preview.style.setProperty('--fade-bottom', Math.min(PREVIEW_FADE, Math.max(0, below)) + 'px');
+  }
   function where(current) {
     if (!probe.link) return resting.get(current.id) === 'belt' ? 'Drifting on the outer belt' : 'Docked at the station';
     const task = tasksById.get(probe.link);
@@ -31,9 +38,12 @@ export function createProbeCallout({ controller, focusTask, openNote, onClose })
     card.style.setProperty('--note-here', noteColor(current, mode));
     $('probe-title').textContent = noteTitle(current);
     $('probe-place').textContent = where(current);
-    const body = current.body.length > PREVIEW ? current.body.slice(0, PREVIEW) + '…' : current.body;
-    $('probe-preview').innerHTML = renderMarkdown(body);
-    $('probe-preview').hidden = !current.body.trim();
+    // Redraws keep the reader's place in the preview.
+    const preview = $('probe-preview'), scroll = preview.scrollTop;
+    preview.innerHTML = renderMarkdown(current.body);
+    preview.hidden = !current.body.trim();
+    preview.scrollTop = scroll;
+    fadePreview();
     const links = $('probe-links');
     if (!current.links.length) links.replaceChildren(element('span', 'note-chip', 'Unlinked'));
     else links.replaceChildren(...current.links.map(id => {
@@ -63,7 +73,7 @@ export function createProbeCallout({ controller, focusTask, openNote, onClose })
     if (!$('probe-picker').hidden) fillPicker();
   }
   function show(next) {
-    if (next !== probe) { confirming = false; $('probe-picker').hidden = true; }
+    if (next !== probe) { confirming = false; $('probe-picker').hidden = true; $('probe-preview').scrollTop = 0; }
     probe = next;
     card.hidden = false;
     draw();
@@ -95,6 +105,7 @@ export function createProbeCallout({ controller, focusTask, openNote, onClose })
     $('probe-picker-empty').textContent = tasks.length ? 'No tasks match.' : 'No tasks yet. Connect Redmine or ClickUp in Settings.';
   }
 
+  $('probe-preview').onscroll = fadePreview;
   $('probe-close').onclick = hide;
   $('probe-open').onclick = () => { const id = probe?.noteId; hide(); if (id) openNote(id); };
   $('probe-pin').onclick = () => { const current = note(); if (current) controller().setNotePinned(current.id, !current.pinned); };
