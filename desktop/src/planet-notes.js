@@ -49,7 +49,7 @@ export function createPlanetNotes({ onPick, onHover, onCreate, onLink }) {
       ['link', 'Link a note', 'Link a note', togglePicker]].map(([icon, title, label, onclick]) => {
       const button = element('button', className);
       button.type = 'button';
-      button.title = title;
+      button.dataset.tip = title;
       button.setAttribute('aria-label', title);
       button.innerHTML = icons[icon];
       if (labelled) button.append(element('span', null, label));
@@ -119,7 +119,7 @@ export function createPlanetNotes({ onPick, onHover, onCreate, onLink }) {
     if (style === 'dots') {
       dots.replaceChildren(...moons.map(note => {
         const dot = noteButton(note, 'moon-dot');
-        dot.title = noteTitle(note);
+        dot.dataset.tip = noteTitle(note);
         dot.setAttribute('aria-label', 'Select note ' + noteTitle(note));
         return dot;
       }), ...actions('moon-action'));
