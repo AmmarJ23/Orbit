@@ -205,6 +205,14 @@ Every note is shown as small man-made probes: one per link, or exactly one when 
 - **Deleting a note** makes all its probes explode at once in both systems: a small flash in the note's colour and drifting fragments, about 1.5 seconds, no shockwave and no camera shake. Reduced motion fades them out.
 - Visibility rule as elsewhere: when nobody is watching, probes simply settle in their final place.
 
+### Probe look — decided 22 October 2026
+
+- **Probe style** (preference): Dish probe (default) or Satellite, both low-poly in the station's blue metal, about a third the size of the smallest planet. The note's colour is the light on the antenna or mast, drawn as a glow and an additive halo rather than a scene light.
+- **Station docks** (preference, independent of probe style): Ring berths (default, 10 berths around the habitat ring, turning with it, empty berths faint) or Mast rack (10 berths staggered up and down the mast). Switching moves docked probes to their new berths.
+- **Belt:** probes beyond the docks drift slowly at about 11–11.8 units, with a very faint dotted guide and no solid ring.
+- **Moons:** each link has its own small orbit, spaced by link order and tilted differently so several moons don't overlap, with no trails. The same applies in the completed system.
+- **Hover and select:** hovering a probe shows the note title as a small tag. Probes have no permanent labels.
+
 ### Colour and light
 
 - A note's colour is its only identifier; there is no per-note blink rhythm. All of a note's probes share it, and the Notes tab and side card show the same colour dot.
