@@ -434,6 +434,7 @@ const probes = createProbes({ scene, station, stationBody, stationMaterial, pane
 let hoveredProbe = null;
 let hoveredNote = null; // A note hovered in the planet callout.
 let latestNotes = [];
+let latestTasks = [];
 let notesPreferences = { style: 'chips', colors: 'palette' };
 // The planet callout lists its moons; picking one hands the selection to that probe.
 const planetNotes = createPlanetNotes({
@@ -445,6 +446,8 @@ const planetNotes = createPlanetNotes({
     probeCallout.show(probe);
   },
   onHover(noteId) { hoveredNote = noteId; },
+  onCreate: taskId => notesView.createFor(taskId),
+  onLink: (note, taskId) => controller.setNoteLinks(note.id, [...note.links, taskId]),
 });
 const shownAt = new THREE.Vector3();
 // Settled completed planets are drawn by their copy in the completed system while it is on screen.
@@ -533,7 +536,7 @@ function select(planet) {
 }
 function refreshSelection() {
   if (!selected) return;
-  planetNotes.render(selected.userData.task, latestNotes, notesPreferences);
+  planetNotes.render(selected.userData.task, latestNotes, latestTasks, notesPreferences);
   const { name, source, status, transfer, forming, completion } = selected.userData;
   const isWaiting = status === 'not-started';
   const isLeaving = transfer?.kind === 'out';
@@ -743,7 +746,7 @@ function positionSettings() {
 $('close-settings').onclick = closeSettings;
 addEventListener('keydown', event => {
   if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
-  if (probeCallout.escape()) return;
+  if (planetNotes.escape() || probeCallout.escape()) return;
   if (!settingsCard.hidden) closeSettings();
   else if (selected) select(null);
 });
@@ -1098,6 +1101,7 @@ function applySnapshot(snapshot, { settle, animate }) {
   }
   probes.apply(snapshot, { animate: animate && !settle, settle });
   latestNotes = snapshot.notes ?? [];
+  latestTasks = snapshot.tasks;
   notesPreferences = { style: snapshot.preferences.planetNotes ?? 'chips', colors: snapshot.preferences.noteColors };
   const preferences = snapshot.preferences;
   paused = preferences.paused; speed = preferences.speed; frameLimit = preferences.frameLimit; showLabels = preferences.labels;

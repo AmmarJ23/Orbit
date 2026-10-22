@@ -270,6 +270,14 @@ export function createNotesView({ controller, focusTask, setView }) {
     setSheet(true);
     $('note-title').focus();
   }
+  // From a planet's callout: a blank note already linked to that task, open for writing.
+  async function createFor(taskId) {
+    flush();
+    const id = crypto.randomUUID();
+    if (!await controller().saveNote(id, '', '') || !await controller().setNoteLinks(id, [taskId])) return;
+    openNote(id);
+    requestAnimationFrame(() => $('note-title').focus());
+  }
 
   // Header: search, sort, filter, layout and New note.
   $('notes-search').oninput = event => { query = event.target.value.trim().toLowerCase(); draw(); };
@@ -430,7 +438,7 @@ export function createNotesView({ controller, focusTask, setView }) {
   $('notes-more').onclick = () => setView('notes');
   $('notes-empty-open').onclick = () => { setView('notes'); create(); };
 
-  return { render, setOpen, openNote };
+  return { render, setOpen, openNote, createFor };
 }
 
 const icons = {

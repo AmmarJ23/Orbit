@@ -82,6 +82,11 @@
   <p id="planet-description"></p><p id="ticket-details"></p>
   <button id="open-source" type="button" class="link" hidden>Open task ↗</button>
   <div id="planet-notes" class="planet-notes" hidden></div>
+  <div id="planet-note-picker" class="probe-picker planet-note-picker" role="dialog" aria-label="Link a note" hidden>
+    <input id="planet-note-search" type="text" placeholder="Search notes" aria-label="Search notes" spellcheck="false" autocomplete="off">
+    <div id="planet-note-list" class="picker-list"></div>
+    <p id="planet-note-empty" class="task-empty" hidden></p>
+  </div>
   <div class="callout-actions"><button id="enter-orbit" class="primary">Enter orbit →</button><button id="complete-planet">Complete ✓</button></div>
   <p id="orbit-hint" class="orbit-hint"></p>
   <button id="clear" class="close" aria-label="Close">×</button>

@@ -104,11 +104,21 @@ i{display:block;width:7px;height:7px;border-radius:50%}.comet{background:var(--p
 .callout-actions{display:flex;gap:6px;margin-top:12px}.callout-actions button{flex:1;padding:7px 6px;font-size:11px}
 .orbit-hint{font-size:10px;line-height:1.5;color:var(--muted);margin:8px 0 0}
 /* Notes orbiting the selected planet (chips, dots, list or a Notes tab) */
-#selection h2{margin-right:calc(22px + var(--moon-dots,0) * 16px)}
-.moon-dots{position:absolute;top:16px;right:38px;display:flex;gap:6px}
+#selection h2{margin-right:calc(22px + var(--moon-dots-width,0px))}
+.moon-dots{position:absolute;top:13px;right:38px;display:flex;align-items:center;gap:6px}
 .moon-dot{width:10px;height:10px;padding:0;border:0;border-radius:50%;background:var(--note)!important;box-shadow:0 0 6px var(--note)}
 .moon-dot:hover,.moon-dot:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 .planet-notes{margin-top:10px}
+.planet-notes svg.ic,.planet-note-picker svg.ic,.moon-dots svg.ic{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.planet-note-action{display:inline-grid;place-items:center;width:26px;height:24px;padding:0;border:1px dashed var(--border);border-radius:6px;background:transparent;color:var(--muted)}
+.planet-note-action:hover:not(:disabled),.moon-action:hover:not(:disabled){color:var(--text);border-color:var(--control);background:transparent}
+.moon-action{display:grid;place-items:center;width:20px;height:20px;padding:0;border:1px dashed var(--border);border-radius:50%;background:transparent;color:var(--muted)}
+.moon-action svg.ic{width:12px;height:12px}
+.planet-note-footer{display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border)}
+.planet-note-labelled{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:0;background:transparent;color:var(--muted);font-size:11px}
+.planet-note-labelled:hover:not(:disabled){color:var(--text);background:#1e2a4399}
+.planet-note-picker{margin-top:10px}
+.planet-picker-row{grid-template-columns:8px minmax(0,1fr) auto}.planet-picker-row .note-dot{width:8px;height:8px}
 .planet-notes-label{margin:0 0 6px;font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:#97a4c5}
 .planet-note-chips{display:flex;flex-wrap:wrap;gap:5px}
 button.planet-note-chip{cursor:pointer;color:var(--text)}button.planet-note-chip:hover:not(:disabled){background:var(--raised);border-color:var(--note)}
