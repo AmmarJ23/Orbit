@@ -588,8 +588,25 @@ export function createCompletionSystem({ scene, rock, random, onChange, core, ce
     const item = settled.find(entry => entry.planet === planet);
     return item ? out.copy(item.mesh.position).add(world.position) : null;
   }
+  // What a planet's probes follow, in scene coordinates: the whole planet while it falls, then
+  // the slowest-draining chunk (probes ride the debris), nothing once that crosses the horizon,
+  // and the reborn copy in the completed system.
+  function anchorOf(planet, out) {
+    const item = settled.find(entry => entry.planet === planet);
+    if (item) { out.copy(item.mesh.position).add(world.position); return 'settled'; }
+    const j = journeys.get(planet);
+    if (!j) return null;
+    if (j.copy.visible) { out.copy(j.copy.position).add(world.position); return 'settled'; }
+    if (!j.broken) { out.copy(planet.position); return 'falling'; }
+    const pieces = j.fragments?.pieces ?? [];
+    j.probePiece ??= pieces.reduce((best, piece) => !best || piece.infall > best.infall ? piece : best, null);
+    const piece = j.probePiece;
+    if (!piece || piece.swallowed || piece.body.r < horizon + 0.15) return 'dark';
+    out.copy(piece.worldCentre);
+    return 'debris';
+  }
   return {
-    complete, update, render, restore, remove, settleAll, positionOf, world,
+    complete, update, render, restore, remove, settleAll, positionOf, anchorOf, world,
     settledMeshes: () => settled.map(item => item.mesh),
     setPreview(enabled) { previewEnabled = enabled; },
     allowPreview(allowed) { previewAllowed = allowed; },

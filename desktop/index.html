@@ -85,6 +85,27 @@
 </aside>
 
 <p id="station-label" class="station-label" aria-hidden="true">Settings</p>
+<aside id="probe-callout" class="glass callout probe-callout" hidden aria-label="Selected note probe">
+  <h2><i id="probe-dot" class="dot note-dot"></i><span id="probe-title"></span></h2>
+  <p id="probe-place" class="callout-meta"></p>
+  <div id="probe-preview" class="markdown note-card-preview probe-preview"></div>
+  <div id="probe-links" class="probe-links"></div>
+  <div class="probe-actions">
+    <button type="button" id="probe-open" class="primary">Open in Notes</button>
+    <button type="button" id="probe-pin" class="icon-button" aria-pressed="false"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 3h5l-.8 5 3 2.5v1.2H5.3v-1.2l3-2.5Z"/><path d="M10 11.7V17"/></svg></button>
+    <button type="button" id="probe-link" class="icon-button" aria-label="Link to a task" title="Link to a task" aria-haspopup="dialog" aria-expanded="false" aria-controls="probe-picker"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-.9.9"/><path d="M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l.9-.9"/></svg></button>
+    <button type="button" id="probe-unlink" class="icon-button" aria-label="Unlink from this task" title="Unlink from this task"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M11 5.6l.4-.4a3 3 0 0 1 4.2 4.2l-1.6 1.6"/><path d="M9 14.4l-.4.4a3 3 0 0 1-4.2-4.2L6 9"/><path d="M4 4l12 12"/></svg></button>
+    <button type="button" id="probe-delete" class="icon-button" aria-label="Delete note" title="Delete note"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M5.5 6l.8 10h7.4l.8-10"/></svg></button>
+  </div>
+  <div id="probe-picker" class="probe-picker" role="dialog" aria-label="Link to a task" hidden>
+    <input id="probe-picker-search" type="text" placeholder="Search tasks" aria-label="Search tasks" spellcheck="false" autocomplete="off">
+    <div id="probe-picker-list" class="picker-list"></div>
+    <p id="probe-picker-empty" class="task-empty" hidden></p>
+  </div>
+  <div id="probe-confirm" class="note-confirm" role="alertdialog" aria-labelledby="probe-confirm-text" hidden><span id="probe-confirm-text"></span><button type="button" id="probe-confirm-cancel" class="quiet">Cancel</button><button type="button" id="probe-confirm-delete" class="danger">Delete</button></div>
+  <button id="probe-close" class="close" aria-label="Close">×</button>
+</aside>
+<p id="probe-tag" class="probe-tag" aria-hidden="true"></p>
 
 <section id="settings" class="glass settings-card" role="dialog" aria-modal="false" aria-labelledby="settings-title" hidden>
   <div class="settings-head"><h2 id="settings-title">Station settings</h2><span id="fps" hidden>— fps</span><button type="button" id="close-settings" class="close" aria-label="Close settings">×</button></div>
@@ -124,6 +145,10 @@
     <div class="pair"><label>Frame limit<select id="frame-limit"><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">Uncapped</option></select></label><label>Resolution<select id="resolution"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select></label></div>
     <label for="note-colors">Note colours<select id="note-colors"><option value="palette">Palette</option><option value="hashed">Hashed</option></select></label>
     <p class="note" id="note-colors-note">Palette uses eight hand-tuned colours, so the first notes never share one. Hashed gives every note its own hue.</p>
+    <div class="pair"><label>Probe style<select id="probe-style"><option value="dish">Dish probe</option><option value="satellite">Satellite</option></select></label><label>Station docks<select id="dock-style"><option value="ring">Ring berths</option><option value="rack">Mast rack</option></select></label></div>
+    <label for="probe-return">Probe return<select id="probe-return" aria-describedby="probe-return-note"><option value="flight">Flight</option><option value="jump">Jump</option><option value="core">Core</option></select></label>
+    <p class="note" id="probe-return-note"></p>
+    <label class="check"><input id="probe-blink" type="checkbox" checked> Probe blink</label>
     <label class="check"><input id="stars" type="checkbox" checked> Star field</label>
     <label class="check"><input id="black-sky" type="checkbox"> Black sky</label>
     <label class="check"><input id="nebula" type="checkbox" checked> Nebula</label>

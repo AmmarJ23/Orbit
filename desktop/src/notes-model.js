@@ -9,7 +9,7 @@ export const PALETTE = ['#f5c76a', '#ff9a76', '#f78fc0', '#e09cf2', '#6fdcb4', '
 // Pinned notes always dock, so this also caps pins (DOCK_SLOTS in model.rs).
 export const DOCK_SLOTS = 10;
 
-function hash(text) {
+export function hash(text) {
   let value = 2166136261;
   for (let i = 0; i < text.length; i++) value = Math.imul(value ^ text.charCodeAt(i), 16777619);
   return value >>> 0;

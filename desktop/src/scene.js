@@ -10,6 +10,8 @@ import { createAppController } from './app-controller.js';
 import { createAppUI, setupSettingsTabs } from './app-ui.js';
 import { createTasksView } from './tasks-view.js';
 import { createNotesView } from './notes-view.js';
+import { createProbes } from './probes.js';
+import { createProbeCallout } from './probe-callout.js';
 
 const DEMO = import.meta.env.VITE_ORBIT_DEMO === 'true';
 document.body.dataset.mode = DEMO ? 'demo' : 'live';
@@ -417,6 +419,18 @@ completionSystem.world.add(completedGlow, completedLight);
 glow(4.2, 0x79bfff, 0.05, 0.2, completionSystem.world); glow(4.2, 0x79bfff, 0.2, 0.045, completionSystem.world);
 glow(7.1, 0x79bfff, 0.05, 0.16, completionSystem.world); glow(7.1, 0x79bfff, 0.22, 0.04, completionSystem.world);
 const homeOf = planet => planet.userData.status === 'completed' ? 'completed' : 'active';
+// Notes as probes: moons of their tasks' planets, or resting at the station and on the belt.
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const probes = createProbes({ scene, station, stationBody, stationMaterial, panelMaterial, radialSprite, centres: systemCentres, reducedMotion,
+  anchorOf(id, out, info) {
+    const planet = taskPlanets.get(id);
+    if (!planet) return null;
+    info.radius = planet.userData.radius * planet.scale.x;
+    if (planet.userData.completion || planet.userData.status === 'completed') return completionSystem.anchorOf(planet, out);
+    out.copy(planet.position);
+    return 'active';
+  } });
+let hoveredProbe = null;
 const shownAt = new THREE.Vector3();
 // Settled completed planets are drawn by their copy in the completed system while it is on screen.
 const displayPosition = planet => (view === 'completed' && homeOf(planet) === 'completed' && completionSystem.positionOf(planet, shownAt)) || planet.position;
@@ -442,8 +456,8 @@ showTravelStyle();
 function switchSystem(target, then) {
   if (target === view) { then?.(); return; }
   if (travel.active) return;
-  select(null); closeSettings();
-  hovered = null; stationHover = false; canvas.style.cursor = '';
+  select(null); closeSettings(); probeCallout.hide();
+  hovered = null; hoveredProbe = null; stationHover = false; canvas.style.cursor = '';
   controls.enabled = false;
   completionSystem.setPreview(false);
   ui.pressSystem(target, true);
@@ -491,6 +505,7 @@ function findOpenPhase(orbit) {
   return phase % fullCircle;
 }
 function select(planet) {
+  if (planet) probeCallout.hide();
   selected = planet;
   $('selection').hidden = !planet;
   selectionRing.visible = !!planet;
@@ -590,19 +605,23 @@ canvas.addEventListener('pointermove', e => {
   if (e.buttons || travel.active) return;
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
-  hovered = pick();
-  stationHover = !hovered && pickStation();
-  canvas.style.cursor = hovered || stationHover ? 'pointer' : '';
+  // Probes are small and sit in front of their planets, so they are tried first.
+  hoveredProbe = probes.pick(raycaster, view);
+  hovered = hoveredProbe ? null : pick();
+  stationHover = !hoveredProbe && !hovered && pickStation();
+  canvas.style.cursor = hoveredProbe || hovered || stationHover ? 'pointer' : '';
 });
-canvas.addEventListener('pointerleave', () => { hovered = null; stationHover = false; });
+canvas.addEventListener('pointerleave', () => { hovered = null; hoveredProbe = null; stationHover = false; });
 canvas.addEventListener('pointerdown', e => { down = {x:e.clientX, y:e.clientY}; });
 canvas.addEventListener('pointerup', e => {
   if (!down || travel.active || Math.hypot(e.clientX-down.x,e.clientY-down.y)>5) return;
   pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
   raycaster.setFromCamera(pointer,camera);
-  const planet = pick();
-  if (!planet && pickStation()) { select(null); openSettings(); }
-  else { closeSettings(); select(planet); }
+  const probe = probes.pick(raycaster, view);
+  const planet = probe ? null : pick();
+  if (probe) { closeSettings(); select(null); probeCallout.show(probe); }
+  else if (!planet && pickStation()) { select(null); probeCallout.hide(); openSettings(); }
+  else { closeSettings(); probeCallout.hide(); select(planet); }
   down = null;
 });
 $('clear').onclick = () => select(null);
@@ -612,7 +631,7 @@ let panelRects = [];
 let placedLabels = [];
 let panelRectsAt = -Infinity;
 function readPanelRects() {
-  panelRects = [...document.querySelectorAll('header > *, .intro, .sources, .system-switch, .scene-controls, #selection:not([hidden]), #settings:not([hidden]), #completed-preview:not([hidden])')]
+  panelRects = [...document.querySelectorAll('header > *, .intro, .sources, .system-switch, .scene-controls, #selection:not([hidden]), #probe-callout:not([hidden]), #settings:not([hidden]), #completed-preview:not([hidden])')]
     .map(el => { const r = el.getBoundingClientRect(); return { x: r.left - 8, y: r.top - 8, w: r.width + 16, h: r.height + 16 }; });
   panelRectsAt = performance.now();
 }
@@ -685,7 +704,7 @@ const settingsCard = $('settings');
 const tabs = setupSettingsTabs();
 function openSettings() {
   if (!settingsCard.hidden) return;
-  select(null);
+  select(null); probeCallout.hide();
   tabs.showFirst();
   settingsCard.hidden = false;
   positionSettings();
@@ -707,6 +726,7 @@ function positionSettings() {
 $('close-settings').onclick = closeSettings;
 addEventListener('keydown', event => {
   if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+  if (probeCallout.escape()) return;
   if (!settingsCard.hidden) closeSettings();
   else if (selected) select(null);
 });
@@ -748,13 +768,32 @@ function updateOverlays(now) {
   label.classList.toggle('visible', stationHover && settingsCard.hidden);
   label.style.transform = `translate(${(projected.x * 0.5 + 0.5) * innerWidth - 30}px, ${(-projected.y * 0.5 + 0.5) * innerHeight - 70}px)`;
   positionSettings();
-  positionCallout();
+  if (selected) positionCallout($('selection'), displayPosition(selected));
+  updateProbeOverlays();
 }
 const calloutPoint = new THREE.Vector3();
-function positionCallout() {
-  if (!selected) return;
-  const card = $('selection');
-  calloutPoint.copy(displayPosition(selected)).project(camera);
+const probePoint = new THREE.Vector3();
+// The probe callout follows its probe; it closes when the probe is destroyed or settles in the
+// other system. The hover tag names the note under the pointer.
+function updateProbeOverlays() {
+  const chosen = probeCallout.probe;
+  if (chosen && (!probes.alive(chosen) || (probes.settled(chosen) && probes.systemOf(chosen) !== view))) probeCallout.hide();
+  if (probeCallout.probe) positionCallout($('probe-callout'), probes.lightOf(probeCallout.probe, probePoint));
+  probes.setFocus(hoveredProbe?.noteId ?? probeCallout.probe?.noteId ?? null);
+  const tag = $('probe-tag');
+  const show = hoveredProbe && probes.alive(hoveredProbe) && hoveredProbe !== probeCallout.probe && !travel.active;
+  tag.classList.toggle('visible', !!show);
+  if (!show) return;
+  if (tag.dataset.note !== hoveredProbe.noteId || tag.textContent !== probeCallout.titleOf(hoveredProbe)) {
+    tag.dataset.note = hoveredProbe.noteId;
+    tag.textContent = probeCallout.titleOf(hoveredProbe);
+    tag.style.setProperty('--note', '#' + hoveredProbe.colour.getHexString());
+  }
+  probes.lightOf(hoveredProbe, probePoint).project(camera);
+  tag.style.transform = `translate(${(probePoint.x * 0.5 + 0.5) * innerWidth + 12}px, ${(-probePoint.y * 0.5 + 0.5) * innerHeight - 30}px)`;
+}
+function positionCallout(card, point) {
+  calloutPoint.copy(point).project(camera);
   const x = (calloutPoint.x * 0.5 + 0.5) * innerWidth;
   const y = (-calloutPoint.y * 0.5 + 0.5) * innerHeight;
   const w = card.offsetWidth, h = card.offsetHeight;
@@ -767,6 +806,15 @@ $('speed').onchange = e => controller.savePreferences({ speed: Number(e.target.v
 $('frame-limit').onchange = e => controller.savePreferences({ frameLimit: Number(e.target.value) });
 $('resolution').onchange = e => controller.savePreferences({ resolution: Number(e.target.value) });
 $('stars').onchange = e => controller.savePreferences({ stars: e.target.checked });
+const probeReturnNotes = {
+  flight: 'A probe unlinked from a done task flies back across the gap to the station. Reduced motion uses Jump.',
+  jump: 'A probe unlinked from a done task blinks out and blinks back in at the station.',
+  core: 'A probe unlinked from a done task dives into the completed core and emerges from the active one. Reduced motion uses Jump.',
+};
+$('probe-style').onchange = e => controller.savePreferences({ probeStyle: e.target.value });
+$('dock-style').onchange = e => controller.savePreferences({ dockStyle: e.target.value });
+$('probe-return').onchange = e => controller.savePreferences({ probeReturn: e.target.value });
+$('probe-blink').onchange = e => controller.savePreferences({ probeBlink: e.target.checked });
 $('fullscreen').onclick = async () => {
   try {
     await toggleFullscreen();
@@ -800,7 +848,7 @@ addEventListener('keydown', event => {
 // Escape closes the selection or settings first; with nothing open it leaves Zen. Capture runs
 // before the closing handler above, so one press never does both.
 addEventListener('keydown', event => {
-  if (event.key === 'Escape' && zen && !selected && settingsCard.hidden && !document.querySelector('dialog[open]')) setZen(false);
+  if (event.key === 'Escape' && zen && !selected && !probeCallout.open && settingsCard.hidden && !document.querySelector('dialog[open]')) setZen(false);
 }, true);
 document.addEventListener('fullscreenchange', updateFullscreenLabel);
 addEventListener('resize', updateFullscreenLabel);
@@ -884,6 +932,7 @@ function animate(now) {
   if (!travel.update(delta)) controls.update();
   updateBackdrop();
   completionSystem.update(delta, paused, speed);
+  probes.update(delta, paused ? 0 : delta * speed, simulationTime);
   updateArrivalTags();
   updateLabels();
   updateOverlays(now);
@@ -960,6 +1009,7 @@ function settleAll() {
   travel.finish();
   for (const planet of taskPlanets.values()) settlePlanet(planet);
   completionSystem.settleAll();
+  probes.settle();
   selectionRing.visible = false;
   refreshSelection();
 }
@@ -1022,6 +1072,7 @@ function applySnapshot(snapshot, { settle, animate }) {
       transferPlanet(planet, task.state);
     }
   }
+  probes.apply(snapshot, { animate: animate && !settle, settle });
   const preferences = snapshot.preferences;
   paused = preferences.paused; speed = preferences.speed; frameLimit = preferences.frameLimit; showLabels = preferences.labels;
   travelStyle = travelStyles.some(([id]) => id === preferences.transition) ? preferences.transition : 'glide';
@@ -1040,6 +1091,10 @@ function applySnapshot(snapshot, { settle, animate }) {
   $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
   $('speed').value = speed; $('speed-value').textContent = speed.toFixed(1) + '×';
   $('frame-limit').value = frameLimit; $('resolution').value = preferences.resolution; $('stars').checked = preferences.stars;
+  $('probe-style').value = preferences.probeStyle ?? 'dish'; $('dock-style').value = preferences.dockStyle ?? 'ring';
+  $('probe-return').value = preferences.probeReturn ?? 'flight'; $('probe-blink').checked = preferences.probeBlink !== false;
+  $('probe-return-note').textContent = probeReturnNotes[$('probe-return').value];
+  probeCallout.render(snapshot);
   ui.render(snapshot); tasksView.render(snapshot); notesView.render(snapshot); refreshSelection(); updateLabels();
 }
 // Overview, Tasks and Notes are the header's views; Tasks and Notes float over the scene.
@@ -1055,6 +1110,7 @@ function setView(name) {
 for (const button of document.querySelectorAll('.nav-tabs [data-view]')) button.onclick = () => setView(button.dataset.view);
 tasksView = createTasksView({ controller: () => controller, focusTask, setView });
 notesView = createNotesView({ controller: () => controller, focusTask, setView });
+const probeCallout = createProbeCallout({ controller: () => controller, focusTask, openNote: id => notesView.openNote(id) });
 ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem, openTasks: source => { tasksView.filter(source); setView('tasks'); } });
 for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
 async function boot() {

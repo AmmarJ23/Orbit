@@ -133,6 +133,35 @@ impl Default for NotesView {
     }
 }
 
+// Probe body drawn in the scene (desktop/src/probes.js).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProbeStyle {
+    #[default]
+    Dish,
+    Satellite,
+}
+// Where docked probes rest on the station: around the habitat ring or up the mast.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DockStyle {
+    #[default]
+    Ring,
+    Rack,
+}
+// How a probe crosses between the completed and active systems.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProbeReturn {
+    #[default]
+    Flight,
+    Jump,
+    Core,
+}
+const fn on() -> bool {
+    true
+}
+
 // Camera move between the active and completed systems (desktop/src/travel.js).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -165,6 +194,10 @@ pub struct Preferences {
     pub redmine_vpn: Option<String>,
     pub note_colors: NoteColors,
     pub notes_view: NotesView,
+    pub probe_style: ProbeStyle,
+    pub dock_style: DockStyle,
+    pub probe_return: ProbeReturn,
+    pub probe_blink: bool,
 }
 // What a stored document may hold, including fields from older versions.
 #[derive(Deserialize)]
@@ -192,6 +225,14 @@ struct StoredPreferences {
     note_colors: NoteColors,
     #[serde(default)]
     notes_view: NotesView,
+    #[serde(default)]
+    probe_style: ProbeStyle,
+    #[serde(default)]
+    dock_style: DockStyle,
+    #[serde(default)]
+    probe_return: ProbeReturn,
+    #[serde(default = "on")]
+    probe_blink: bool,
 }
 impl From<StoredPreferences> for Preferences {
     fn from(stored: StoredPreferences) -> Self {
@@ -211,6 +252,10 @@ impl From<StoredPreferences> for Preferences {
             redmine_vpn: stored.redmine_vpn,
             note_colors: stored.note_colors,
             notes_view: stored.notes_view,
+            probe_style: stored.probe_style,
+            dock_style: stored.dock_style,
+            probe_return: stored.probe_return,
+            probe_blink: stored.probe_blink,
         }
     }
 }
@@ -231,6 +276,10 @@ impl Default for Preferences {
             redmine_vpn: None,
             note_colors: NoteColors::Palette,
             notes_view: NotesView::default(),
+            probe_style: ProbeStyle::Dish,
+            dock_style: DockStyle::Ring,
+            probe_return: ProbeReturn::Flight,
+            probe_blink: true,
         }
     }
 }
