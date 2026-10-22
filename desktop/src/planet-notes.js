@@ -129,7 +129,7 @@ export function createPlanetNotes({ onPick, onHover, onCreate, onLink }) {
     }
     card.style.setProperty('--moon-dots-width', '0px');
     dots.replaceChildren();
-    const label = style === 'tabs' ? [] : [element('p', 'planet-notes-label', `Moons · ${moons.length}`)];
+    const label = style === 'tabs' ? [] : [element('p', 'planet-notes-label', `Probes · ${moons.length}`)];
     if (style === 'list') {
       const list = element('div', 'planet-note-list');
       list.append(...moons.map(note => {
