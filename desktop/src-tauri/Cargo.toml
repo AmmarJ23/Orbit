@@ -1,6 +1,6 @@
 [package]
 name = "orbit-desktop"
-version = "0.0.3-alpha"
+version = "0.1.0"
 description = "Orbit local task companion"
 edition = "2021"
 rust-version = "1.77.2"
