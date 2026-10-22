@@ -57,6 +57,82 @@ pub struct Task {
     pub hidden: bool,
 }
 
+// A personal note. Each link is a probe orbiting that task's planet; an unlinked note
+// has one probe resting at the station or on the outer belt.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    pub id: String,
+    pub title: String,
+    // Markdown is the stored form; the Rich editor reads and writes it.
+    pub body: String,
+    #[serde(default)]
+    pub links: Vec<String>,
+    #[serde(default)]
+    pub pinned: bool,
+    // Palette slot, kept whichever colour mode is shown so switching back restores it.
+    pub palette: u8,
+    // Milliseconds since the epoch.
+    pub created: u64,
+    pub edited: u64,
+    // When the note last became unlinked; station docks go first come, first served.
+    pub rested: u64,
+}
+pub const PALETTE_SIZE: u8 = 8;
+// Pinned notes always dock at the station, so pins cannot outnumber its slots.
+pub const DOCK_SLOTS: usize = 10;
+
+// How note colours are shown: the stored palette slot, or a hue hashed from the note id.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum NoteColors {
+    #[default]
+    Palette,
+    Hashed,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum NotesLayout {
+    #[default]
+    List,
+    Grid,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum NotesSort {
+    #[default]
+    Edited,
+    Created,
+    Title,
+    Colour,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum NoteEditor {
+    #[default]
+    Rich,
+    Markdown,
+}
+// The Notes tab's remembered view.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct NotesView {
+    pub layout: NotesLayout,
+    pub sort: NotesSort,
+    pub descending: bool,
+    pub editor: NoteEditor,
+}
+impl Default for NotesView {
+    fn default() -> Self {
+        Self {
+            layout: NotesLayout::List,
+            sort: NotesSort::Edited,
+            descending: true,
+            editor: NoteEditor::Rich,
+        }
+    }
+}
+
 // Camera move between the active and completed systems (desktop/src/travel.js).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -87,6 +163,8 @@ pub struct Preferences {
     pub transition: Transition,
     // macOS VPN service to connect before each Redmine sync.
     pub redmine_vpn: Option<String>,
+    pub note_colors: NoteColors,
+    pub notes_view: NotesView,
 }
 // What a stored document may hold, including fields from older versions.
 #[derive(Deserialize)]
@@ -110,6 +188,10 @@ struct StoredPreferences {
     transition: Transition,
     #[serde(default)]
     redmine_vpn: Option<String>,
+    #[serde(default)]
+    note_colors: NoteColors,
+    #[serde(default)]
+    notes_view: NotesView,
 }
 impl From<StoredPreferences> for Preferences {
     fn from(stored: StoredPreferences) -> Self {
@@ -127,6 +209,8 @@ impl From<StoredPreferences> for Preferences {
             black_sky: stored.black_sky,
             transition: stored.transition,
             redmine_vpn: stored.redmine_vpn,
+            note_colors: stored.note_colors,
+            notes_view: stored.notes_view,
         }
     }
 }
@@ -145,6 +229,8 @@ impl Default for Preferences {
             black_sky: false,
             transition: Transition::Glide,
             redmine_vpn: None,
+            note_colors: NoteColors::Palette,
+            notes_view: NotesView::default(),
         }
     }
 }
@@ -199,6 +285,8 @@ pub struct SavedData {
     pub active_account: Option<String>,
     pub accounts: BTreeMap<String, Account>,
     pub preferences: Preferences,
+    #[serde(default)]
+    pub notes: BTreeMap<String, Note>,
 }
 impl SavedData {
     pub fn active(&self, source: Source) -> Option<&Account> {
@@ -245,6 +333,7 @@ pub struct Snapshot {
     pub tasks: Vec<Task>,
     pub preferences: Preferences,
     pub sources: BTreeMap<Source, SourceInfo>,
+    pub notes: Vec<Note>,
 }
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -46,6 +46,42 @@ pub async fn save_preferences(
     let s = service(&state)?;
     blocking(move || s.save_preferences(preferences)).await
 }
+#[tauri::command]
+pub async fn save_note(
+    id: String,
+    title: String,
+    body: String,
+    state: tauri::State<'_, LiveState>,
+) -> Result<Snapshot, String> {
+    let s = service(&state)?;
+    blocking(move || s.save_note(&id, &title, &body)).await
+}
+#[tauri::command]
+pub async fn set_note_pinned(
+    id: String,
+    pinned: bool,
+    state: tauri::State<'_, LiveState>,
+) -> Result<Snapshot, String> {
+    let s = service(&state)?;
+    blocking(move || s.set_note_pinned(&id, pinned)).await
+}
+#[tauri::command]
+pub async fn set_note_links(
+    id: String,
+    links: Vec<String>,
+    state: tauri::State<'_, LiveState>,
+) -> Result<Snapshot, String> {
+    let s = service(&state)?;
+    blocking(move || s.set_note_links(&id, &links)).await
+}
+#[tauri::command]
+pub async fn delete_note(
+    id: String,
+    state: tauri::State<'_, LiveState>,
+) -> Result<Snapshot, String> {
+    let s = service(&state)?;
+    blocking(move || s.delete_note(&id)).await
+}
 // `base_url` is the Redmine server; ClickUp ignores it and uses `workspace_id` instead.
 #[tauri::command]
 pub async fn connect_source(

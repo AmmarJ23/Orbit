@@ -20,6 +20,15 @@ pub fn now() -> u64 {
         .unwrap_or_default()
         .as_secs()
 }
+pub fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+const NOTE_MISSING: &str = "This note no longer exists.";
+const TITLE_MAX: usize = 200;
+const BODY_MAX: usize = 200_000;
 struct Runtime {
     repository: Repository,
     saved: SavedData,
@@ -67,6 +76,7 @@ impl Runtime {
             preferences: self.saved.preferences.clone(),
             tasks,
             sources,
+            notes: self.saved.notes.values().cloned().collect(),
         }
     }
 }
@@ -103,7 +113,14 @@ impl Service {
         if source != Source::Redmine {
             return Ok(());
         }
-        let name = self.runtime.lock().unwrap().saved.preferences.redmine_vpn.clone();
+        let name = self
+            .runtime
+            .lock()
+            .unwrap()
+            .saved
+            .preferences
+            .redmine_vpn
+            .clone();
         name.map_or(Ok(()), |name| crate::vpn::ensure(&name))
     }
     pub fn start(self: &Arc<Self>) {
@@ -211,6 +228,111 @@ impl Service {
         let mut saved = runtime.saved.clone();
         saved.preferences = preferences;
         self.commit(&mut runtime, saved, false)
+    }
+    // Creates the note when the id is new. The frontend picks ids so a new note can be
+    // selected before the reply arrives.
+    pub fn save_note(&self, id: &str, title: &str, body: &str) -> Result<Snapshot, String> {
+        if id.is_empty()
+            || id.len() > 64
+            || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        {
+            return Err("Invalid note id.".into());
+        }
+        let title = title.trim();
+        if title.chars().count() > TITLE_MAX {
+            return Err(format!("Note titles can be up to {TITLE_MAX} characters."));
+        }
+        if body.len() > BODY_MAX {
+            return Err("This note is too long to save.".into());
+        }
+        let mut runtime = self.runtime.lock().unwrap();
+        let mut saved = runtime.saved.clone();
+        let time = now_ms();
+        match saved.notes.get_mut(id) {
+            Some(note) => {
+                if note.title == title && note.body == body {
+                    return Ok(runtime.snapshot());
+                }
+                note.title = title.into();
+                note.body = body.into();
+                note.edited = time;
+            }
+            None => {
+                // The least-used colour keeps the first notes distinct.
+                let mut used = [0usize; PALETTE_SIZE as usize];
+                for note in saved.notes.values() {
+                    used[(note.palette % PALETTE_SIZE) as usize] += 1;
+                }
+                let palette = (0..PALETTE_SIZE)
+                    .min_by_key(|&slot| used[slot as usize])
+                    .unwrap_or(0);
+                saved.notes.insert(
+                    id.into(),
+                    Note {
+                        id: id.into(),
+                        title: title.into(),
+                        body: body.into(),
+                        links: Vec::new(),
+                        pinned: false,
+                        palette,
+                        created: time,
+                        edited: time,
+                        rested: time,
+                    },
+                );
+            }
+        }
+        self.commit(&mut runtime, saved, false)
+    }
+    pub fn set_note_pinned(&self, id: &str, pinned: bool) -> Result<Snapshot, String> {
+        let mut runtime = self.runtime.lock().unwrap();
+        let mut saved = runtime.saved.clone();
+        let count = saved
+            .notes
+            .values()
+            .filter(|n| n.pinned && n.id != id)
+            .count();
+        if pinned && count >= DOCK_SLOTS {
+            return Err(format!(
+                "Up to {DOCK_SLOTS} notes can be pinned, one for each station dock. Unpin one first."
+            ));
+        }
+        saved.notes.get_mut(id).ok_or(NOTE_MISSING)?.pinned = pinned;
+        self.commit(&mut runtime, saved, true)
+    }
+    // Replaces every link at once. Links only reach tasks in a connected account.
+    pub fn set_note_links(&self, id: &str, links: &[String]) -> Result<Snapshot, String> {
+        let mut runtime = self.runtime.lock().unwrap();
+        let mut saved = runtime.saved.clone();
+        let mut unique: Vec<String> = Vec::new();
+        for link in links {
+            if !unique.contains(link) {
+                unique.push(link.clone());
+            }
+        }
+        let note = saved.notes.get(id).ok_or(NOTE_MISSING)?;
+        let known = |task: &String| {
+            note.links.contains(task)
+                || Source::ALL
+                    .into_iter()
+                    .filter_map(|source| saved.active(source))
+                    .any(|account| account.tasks.contains_key(task))
+        };
+        if !unique.iter().all(known) {
+            return Err("That task is no longer in a connected account.".into());
+        }
+        let note = saved.notes.get_mut(id).ok_or(NOTE_MISSING)?;
+        if unique.is_empty() && !note.links.is_empty() {
+            note.rested = now_ms();
+        }
+        note.links = unique;
+        self.commit(&mut runtime, saved, true)
+    }
+    pub fn delete_note(&self, id: &str) -> Result<Snapshot, String> {
+        let mut runtime = self.runtime.lock().unwrap();
+        let mut saved = runtime.saved.clone();
+        saved.notes.remove(id).ok_or(NOTE_MISSING)?;
+        self.commit(&mut runtime, saved, true)
     }
     // A refresh wakes the shared worker, which syncs every connected source.
     pub fn refresh(&self, source: Source) -> Result<(), String> {

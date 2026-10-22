@@ -9,7 +9,7 @@ const logos = { Redmine: redmineLogo, ClickUp: clickupLogo };
 
 const $ = id => document.getElementById(id);
 
-export function createTasksView({ controller, focusTask }) {
+export function createTasksView({ controller, focusTask, setView }) {
   const view = $('tasks-view');
   const collapsed = new Set();
   // Lists longer than this start collapsed; `toggled` records the lists the reader has flipped.
@@ -24,6 +24,7 @@ export function createTasksView({ controller, focusTask }) {
   let query = '';
 
   function setOpen(value) {
+    if (value === open) return;
     open = value;
     clearTimeout(closing);
     view.classList.remove('closing');
@@ -34,15 +35,9 @@ export function createTasksView({ controller, focusTask }) {
       view.classList.add('closing');
       closing = setTimeout(() => { view.classList.remove('closing'); view.hidden = true; }, 140);
     }
-    document.body.classList.toggle('tasks-open', value);
-    for (const button of document.querySelectorAll('.nav-tabs [data-view]')) {
-      if (button.dataset.view === (value ? 'tasks' : 'overview')) button.setAttribute('aria-current', 'page');
-      else button.removeAttribute('aria-current');
-    }
     if (value) { draw(); $('tasks-search').focus(); }
   }
-  for (const button of document.querySelectorAll('.nav-tabs [data-view]')) button.onclick = () => setOpen(button.dataset.view === 'tasks');
-  document.addEventListener('keydown', event => { if (event.key === 'Escape' && open && !document.querySelector('dialog[open]')) setOpen(false); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && open && !document.querySelector('dialog[open]')) setView('overview'); });
   $('tasks-search').oninput = event => { query = event.target.value.trim().toLowerCase(); draw(); };
   $('tasks-show-hidden').onchange = event => { showHidden = event.target.checked; draw(); };
   function setFilter(value) {
@@ -97,7 +92,7 @@ export function createTasksView({ controller, focusTask }) {
       Object.assign(document.createElement('span'), { textContent: (task.source === 'Redmine' ? '#' + task.externalId + ' ' : '') + task.title }));
     title.title = task.hidden ? 'Hidden from the scene' : 'Show in orbit';
     title.disabled = task.hidden;
-    title.onclick = () => { setOpen(false); focusTask(task.id); };
+    title.onclick = () => { setView('overview'); focusTask(task.id); };
     const actions = cell('tree-actions');
     // A parent offers its whole branch as well as itself, matching ClickUp's nesting.
     if (kids.length) {
@@ -195,7 +190,8 @@ export function createTasksView({ controller, focusTask }) {
   }
   return {
     render(snapshot) { tasks = snapshot.tasks; byId = new Map(tasks.map(task => [task.id, task])); draw(); },
-    open(source = 'all') { setFilter(source); setOpen(true); },
-    close() { if (open) setOpen(false); },
+    setOpen,
+    // Shows the tab filtered to one source; the caller switches views.
+    filter: setFilter,
   };
 }

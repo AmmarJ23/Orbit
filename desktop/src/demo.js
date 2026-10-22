@@ -11,6 +11,13 @@ const specs = [
   ['Echo', 'ClickUp', 'not-started', 0.38, 0x465d7a, 0.1, 0],
   ['Solace', 'ClickUp', 'not-started', 0.53, 0x8095ac, 4.8, 0],
 ];
+const PALETTE_SIZE = 8, DOCK_SLOTS = 10;
+const sampleNotes = [
+  ['Sprint ideas', '- Pair on the **orbit transfer** easing\n- Try a slower belt drift', [], true],
+  ['Login timeout', 'Users get logged out after **5 min** on the VPN.\n\n- Check `session.ttl`\n- Ask infra about the proxy', ['demo:1'], true],
+  ['API quirks', '## Pagination\nClickUp pages are **zero-based**; Redmine uses `offset`.', ['demo:4', 'demo:2'], false],
+  ['Standup notes', 'Blocked on review. Demo the probes on Friday.', [], false],
+];
 export function createDemoRepository() {
   let sequence = 10;
   const listeners = new Set();
@@ -21,7 +28,16 @@ export function createDemoRepository() {
       parentId: ['Echo', 'Solace'].includes(title) ? 'demo:4' : null,
       upstreamPresent: true, project: 'Animation testing', priority: null, url: null,
       appearance: { radius, color, angle, speed },
-    })) };
+    })),
+    notes: sampleNotes.map(([title, body, links, pinned], i) => {
+      const time = Date.now() - (sampleNotes.length - i) * 3600e3;
+      return { id: `demo-note-${i + 1}`, title, body, links, pinned, palette: i % PALETTE_SIZE, created: time, edited: time, rested: time };
+    }) };
+  const note = id => {
+    const found = snapshot.notes.find(note => note.id === id);
+    if (!found) throw new Error('This note no longer exists.');
+    return found;
+  };
   const getSnapshot = async () => structuredClone(snapshot);
   async function publish(animate) {
     snapshot.revision++;
@@ -43,6 +59,40 @@ export function createDemoRepository() {
       return publish(true);
     },
     async savePreferences(preferences) { snapshot.preferences = { ...preferences }; return publish(false); },
+    // Same rules as the native service (service.rs).
+    async saveNote(id, title, body) {
+      title = title.trim();
+      const existing = snapshot.notes.find(note => note.id === id);
+      if (existing) {
+        if (existing.title === title && existing.body === body) return getSnapshot();
+        Object.assign(existing, { title, body, edited: Date.now() });
+      } else {
+        const used = Array(PALETTE_SIZE).fill(0);
+        for (const note of snapshot.notes) used[note.palette % PALETTE_SIZE]++;
+        const time = Date.now();
+        snapshot.notes.push({ id, title, body, links: [], pinned: false, palette: used.indexOf(Math.min(...used)), created: time, edited: time, rested: time });
+      }
+      return publish(false);
+    },
+    async setNotePinned(id, pinned) {
+      if (pinned && snapshot.notes.filter(note => note.pinned && note.id !== id).length >= DOCK_SLOTS) {
+        throw new Error(`Up to ${DOCK_SLOTS} notes can be pinned, one for each station dock. Unpin one first.`);
+      }
+      note(id).pinned = pinned;
+      return publish(true);
+    },
+    async setNoteLinks(id, links) {
+      const target = note(id);
+      links = [...new Set(links)];
+      if (!links.length && target.links.length) target.rested = Date.now();
+      target.links = links;
+      return publish(true);
+    },
+    async deleteNote(id) {
+      note(id);
+      snapshot.notes = snapshot.notes.filter(note => note.id !== id);
+      return publish(true);
+    },
     async addTask(title, source, state) {
       const id = sequence++;
       snapshot.tasks.push({ id: `demo:${id}`, externalId: String(id), title, source, state, seed: id * 193,

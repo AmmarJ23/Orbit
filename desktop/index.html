@@ -5,7 +5,7 @@
 <canvas id="space" aria-label="Interactive low-poly planetary system. Drag to rotate, scroll to zoom, click a planet or the station."></canvas>
 <header>
   <div class="brand"><img src="/src/assets/orbit-lockup-horizontal-dark.svg" alt="Orbit" width="120" height="47"></div>
-  <nav class="nav-tabs" aria-label="Views"><button type="button" data-view="overview" aria-current="page">Overview</button><button type="button" data-view="tasks" aria-controls="tasks-view">Tasks</button><button type="button" disabled title="Coming soon">Notes</button></nav>
+  <nav class="nav-tabs" aria-label="Views"><button type="button" data-view="overview" aria-current="page">Overview</button><button type="button" data-view="tasks" aria-controls="tasks-view">Tasks</button><button type="button" data-view="notes" aria-controls="notes-view">Notes</button></nav>
   <!-- demo:start -->
   <button type="button" id="new-task" class="primary">+ New task</button>
   <!-- demo:end -->
@@ -48,8 +48,12 @@
     </div>
   </section>
   <section class="source-card glass" data-source="notes">
-    <button type="button" class="card-head" aria-expanded="false" aria-controls="notes-body"><span class="source-icon notes" aria-hidden="true">N</span><span class="card-title">Personal notes</span><span class="card-count">0</span></button>
-    <div class="card-body" id="notes-body"><p class="task-empty">Notes are coming soon.</p></div>
+    <button type="button" class="card-head" aria-expanded="false" aria-controls="notes-body"><span class="source-icon notes" aria-hidden="true">N</span><span class="card-title">Personal notes</span><span class="card-count" id="notes-count"></span></button>
+    <div class="card-body" id="notes-body">
+      <p class="task-empty" id="notes-empty">No notes yet. Each note becomes a small probe in your system. <button type="button" class="link" id="notes-empty-open">Write a note</button></p>
+      <ul class="task-list" id="notes-card-list" aria-label="Notes"></ul>
+      <button type="button" class="link card-more" id="notes-more" hidden></button>
+    </div>
   </section>
 </div>
 
@@ -118,6 +122,8 @@
     <label for="transition">System transition<select id="transition" aria-describedby="transition-note"></select></label>
     <p class="note" id="transition-note"></p>
     <div class="pair"><label>Frame limit<select id="frame-limit"><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">Uncapped</option></select></label><label>Resolution<select id="resolution"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option></select></label></div>
+    <label for="note-colors">Note colours<select id="note-colors"><option value="palette">Palette</option><option value="hashed">Hashed</option></select></label>
+    <p class="note" id="note-colors-note">Palette uses eight hand-tuned colours, so the first notes never share one. Hashed gives every note its own hue.</p>
     <label class="check"><input id="stars" type="checkbox" checked> Star field</label>
     <label class="check"><input id="black-sky" type="checkbox"> Black sky</label>
     <label class="check"><input id="nebula" type="checkbox" checked> Nebula</label>
@@ -175,6 +181,59 @@
   <p class="note tasks-hint">Hidden tasks stay out of the scene and the side cards until you show them again, even after syncs. Orbit never changes them in Redmine or ClickUp.</p>
   <div id="tasks-body" class="tasks-body"></div>
   <p id="tasks-empty" class="task-empty" hidden></p>
+</section>
+
+<section id="notes-view" class="glass tasks-view notes-view" aria-labelledby="notes-title" data-layout="list" hidden>
+  <div class="tasks-head">
+    <div><h2 id="notes-title">Notes</h2><p id="notes-summary" class="note" role="status"></p></div>
+    <div class="tasks-tools">
+      <input id="notes-search" type="text" placeholder="Search notes" aria-label="Search notes" spellcheck="false" autocomplete="off">
+      <button type="button" id="notes-sort" class="tool" aria-haspopup="menu" aria-expanded="false" aria-controls="notes-sort-menu"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4v12M3.5 13.5 6 16l2.5-2.5M14 16V4M11.5 6.5 14 4l2.5 2.5"/></svg>Sort</button>
+      <button type="button" id="notes-filter" class="tool" aria-haspopup="menu" aria-expanded="false" aria-controls="notes-filter-menu"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M6 10h8M8.5 15h3"/></svg>Filter<span id="notes-filter-count" class="tool-badge" hidden></span></button>
+      <div id="notes-layout" class="segmented icons" role="group" aria-label="View"><button type="button" data-layout="list" aria-pressed="true" aria-label="List view" title="List"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M8 4v12"/></svg></button><button type="button" data-layout="grid" aria-pressed="false" aria-label="Grid view" title="Grid"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg></button></div>
+      <button type="button" id="notes-new" class="primary tool">+ New note</button>
+    </div>
+  </div>
+  <div class="notes-body">
+    <div id="notes-items" class="notes-items"></div>
+    <div id="notes-start" class="notes-start" hidden>
+      <h3>Write your first note</h3>
+      <p class="note">Each note becomes a small probe in your system. Link it to a task and it orbits that planet; unlinked, it rests at the station.</p>
+      <button type="button" id="notes-start-new" class="primary">+ New note</button>
+    </div>
+    <p id="notes-none" class="task-empty notes-none" hidden>No notes match.</p>
+    <p id="note-pane-empty" class="task-empty note-pane-empty" hidden>Select a note to read or edit it.</p>
+    <section id="note-pane" class="note-pane" aria-label="Note editor" hidden>
+      <div class="note-bar">
+        <div id="note-mode" class="segmented small" role="group" aria-label="Editor"><button type="button" data-mode="rich" aria-pressed="true">Rich</button><button type="button" data-mode="markdown" aria-pressed="false">Markdown</button></div>
+        <span id="note-saved" class="tree-meta" role="status"></span>
+        <div class="note-actions">
+          <button type="button" id="note-pin" class="icon-button" aria-pressed="false"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 3h5l-.8 5 3 2.5v1.2H5.3v-1.2l3-2.5Z"/><path d="M10 11.7V17"/></svg></button>
+          <button type="button" id="note-link" class="icon-button" aria-label="Link to a task" title="Link to a task" aria-haspopup="dialog" aria-expanded="false" aria-controls="note-picker"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-.9.9"/><path d="M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l.9-.9"/></svg></button>
+          <button type="button" id="note-delete" class="icon-button" aria-label="Delete note" title="Delete note"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M5.5 6l.8 10h7.4l.8-10"/></svg></button>
+          <button type="button" id="note-close" class="icon-button" aria-label="Close note" title="Close">×</button>
+        </div>
+      </div>
+      <div id="note-confirm" class="note-confirm" role="alertdialog" aria-labelledby="note-confirm-text" hidden><span id="note-confirm-text"></span><button type="button" id="note-confirm-cancel" class="quiet">Cancel</button><button type="button" id="note-confirm-delete" class="danger">Delete</button></div>
+      <input id="note-title" class="note-title" type="text" placeholder="Untitled note" aria-label="Title" maxlength="200" autocomplete="off">
+      <div id="note-links" class="note-links" aria-label="Linked tasks"></div>
+      <div class="note-editor-wrap">
+        <div id="note-rich" class="note-rich markdown"></div>
+        <textarea id="note-raw" class="note-raw" aria-label="Note in markdown" placeholder="Write in markdown…" hidden></textarea>
+        <div id="note-format" class="note-format glass" role="toolbar" aria-label="Formatting" hidden>
+          <button type="button" data-format="bold" aria-label="Bold" title="Bold (⌘B)"><b>B</b></button><button type="button" data-format="italic" aria-label="Italic" title="Italic (⌘I)"><em>I</em></button><button type="button" data-format="strike" aria-label="Strikethrough" title="Strikethrough"><s>S</s></button><button type="button" data-format="code" aria-label="Inline code" title="Code">&lt;/&gt;</button><button type="button" data-format="heading" aria-label="Heading" title="Heading">H</button><button type="button" data-format="bulletList" aria-label="Bulleted list" title="Bulleted list">•</button><button type="button" data-format="orderedList" aria-label="Numbered list" title="Numbered list">1.</button><button type="button" data-format="link" aria-label="Link" title="Link"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-.9.9"/><path d="M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l.9-.9"/></svg></button>
+          <label id="note-format-link" class="format-link" hidden><span class="visually-hidden">Link address</span><input type="text" placeholder="Paste a link, Enter to apply" spellcheck="false" autocomplete="off"></label>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div id="notes-sort-menu" class="glass notes-menu" role="menu" aria-label="Sort notes" hidden></div>
+  <div id="notes-filter-menu" class="glass notes-menu" role="menu" aria-label="Filter notes" hidden></div>
+  <div id="note-picker" class="glass notes-menu note-picker" role="dialog" aria-label="Link to a task" hidden>
+    <input id="note-picker-search" type="text" placeholder="Search tasks" aria-label="Search tasks" spellcheck="false" autocomplete="off">
+    <div id="note-picker-list" class="picker-list"></div>
+    <p id="note-picker-empty" class="task-empty" hidden></p>
+  </div>
 </section>
 
 <div id="task-menu" class="glass task-menu" role="menu" hidden><button type="button" role="menuitem" data-action="orbit">Enter orbit</button><button type="button" role="menuitem" data-action="complete">Complete</button><button type="button" role="menuitem" data-action="reopen">Reopen · Not started</button><button type="button" role="menuitem" data-action="resume">Reopen · In progress</button><button type="button" role="menuitem" data-action="open">Open task ↗</button><button type="button" role="menuitem" data-action="hide">Hide from scene</button></div>

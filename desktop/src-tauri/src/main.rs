@@ -36,6 +36,38 @@ fn get_app_mode() -> &'static str {
     }
 }
 
+// Opens a link from a note in the default browser or mail app, never inside Orbit's window.
+#[tauri::command]
+async fn open_link(url: String) -> Result<(), String> {
+    let lower = url.to_ascii_lowercase();
+    let allowed = ["https://", "http://", "mailto:"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme));
+    if !allowed || url.len() > 4096 || url.chars().any(char::is_control) {
+        return Err("Only web and email links can be opened.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        // One argument to the platform opener, never a shell command.
+        #[cfg(target_os = "windows")]
+        let opened = std::process::Command::new("explorer")
+            .arg(&url)
+            .spawn()
+            .is_ok();
+        #[cfg(not(target_os = "windows"))]
+        let opened = std::process::Command::new("/usr/bin/open")
+            .arg(&url)
+            .status()
+            .is_ok_and(|status| status.success());
+        if opened {
+            Ok(())
+        } else {
+            Err("Could not open the link.".to_string())
+        }
+    })
+    .await
+    .map_err(|_| "Could not open the link.".to_string())?
+}
+
 #[derive(Default)]
 struct RenderState {
     allowed: AtomicBool,
@@ -120,13 +152,15 @@ fn main() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         get_app_mode,
         rendering_allowed,
-        report_rendering
+        report_rendering,
+        open_link
     ]);
     #[cfg(not(feature = "demo"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         get_app_mode,
         rendering_allowed,
         report_rendering,
+        open_link,
         commands::get_snapshot,
         commands::set_orbit_state,
         commands::set_hidden,
@@ -136,7 +170,11 @@ fn main() {
         commands::refresh_source,
         commands::disconnect_source,
         commands::open_source_task,
-        commands::list_vpns
+        commands::list_vpns,
+        commands::save_note,
+        commands::set_note_pinned,
+        commands::set_note_links,
+        commands::delete_note
     ]);
     builder
         .setup(|app| {

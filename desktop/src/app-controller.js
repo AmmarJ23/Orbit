@@ -1,4 +1,5 @@
-export const defaultPreferences = { labels: true, stars: true, speed: 1, paused: false, frameLimit: 60, resolution: 1.5, nebula: true, rocks: true, completionPreview: true, blackSky: false, transition: 'glide', redmineVpn: null };
+export const defaultPreferences = { labels: true, stars: true, speed: 1, paused: false, frameLimit: 60, resolution: 1.5, nebula: true, rocks: true, completionPreview: true, blackSky: false, transition: 'glide', redmineVpn: null,
+  noteColors: 'palette', notesView: { layout: 'list', sort: 'edited', descending: true, editor: 'rich' } };
 
 // Own hydration/visibility ordering independently of DOM, Three.js and IPC.
 export function createAppController({ repository, view }) {
@@ -93,5 +94,10 @@ export function createAppController({ repository, view }) {
     refresh: source => operation(() => repository.refresh(source), 'refresh'),
     openSource: id => operation(() => repository.openSource(id), 'source'),
     listVpns: () => repository.listVpns().catch(() => []),
+    // Note text saves never animate; links, pins and deletes move probes.
+    saveNote: (id, title, body) => operation(() => repository.saveNote(id, title, body), 'note'),
+    setNotePinned: (id, pinned) => operation(() => repository.setNotePinned(id, pinned), 'note', { animate: true }),
+    setNoteLinks: (id, links) => operation(() => repository.setNoteLinks(id, links), 'note', { animate: true }),
+    deleteNote: id => operation(() => repository.deleteNote(id), 'note', { animate: true }),
   };
 }

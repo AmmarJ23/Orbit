@@ -9,12 +9,14 @@ import { connectVisibility, isFullscreen, toggleFullscreen, reportRendering, des
 import { createAppController } from './app-controller.js';
 import { createAppUI, setupSettingsTabs } from './app-ui.js';
 import { createTasksView } from './tasks-view.js';
+import { createNotesView } from './notes-view.js';
 
 const DEMO = import.meta.env.VITE_ORBIT_DEMO === 'true';
 document.body.dataset.mode = DEMO ? 'demo' : 'live';
 let controller;
 let ui;
 let tasksView;
+let notesView;
 const taskPlanets = new Map();
 const busyTasks = new Set();
 
@@ -780,7 +782,7 @@ let zen = false;
 let zenShiftTimer = 0;
 function setZen(value) {
   zen = value;
-  if (zen) tasksView.close();
+  if (zen) setView('overview');
   // The fade runs only while switching, so other ways of hiding these panels stay instant.
   document.body.classList.add('zen-shift');
   clearTimeout(zenShiftTimer);
@@ -1038,10 +1040,22 @@ function applySnapshot(snapshot, { settle, animate }) {
   $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
   $('speed').value = speed; $('speed-value').textContent = speed.toFixed(1) + '×';
   $('frame-limit').value = frameLimit; $('resolution').value = preferences.resolution; $('stars').checked = preferences.stars;
-  ui.render(snapshot); tasksView.render(snapshot); refreshSelection(); updateLabels();
+  ui.render(snapshot); tasksView.render(snapshot); notesView.render(snapshot); refreshSelection(); updateLabels();
 }
-tasksView = createTasksView({ controller: () => controller, focusTask });
-ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem, openTasks: source => tasksView.open(source) });
+// Overview, Tasks and Notes are the header's views; Tasks and Notes float over the scene.
+function setView(name) {
+  tasksView.setOpen(name === 'tasks');
+  notesView.setOpen(name === 'notes');
+  document.body.classList.toggle('panel-open', name !== 'overview');
+  for (const button of document.querySelectorAll('.nav-tabs [data-view]')) {
+    if (button.dataset.view === name) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  }
+}
+for (const button of document.querySelectorAll('.nav-tabs [data-view]')) button.onclick = () => setView(button.dataset.view);
+tasksView = createTasksView({ controller: () => controller, focusTask, setView });
+notesView = createNotesView({ controller: () => controller, focusTask, setView });
+ui = createAppUI({ controller: () => controller, selectTask: focusTask, selectedId: () => selected?.userData.task.id, switchSystem, openTasks: source => { tasksView.filter(source); setView('tasks'); } });
 for (const input of document.querySelectorAll('#motion-panel input, #motion-panel select, #pause, #labels-toggle')) input.disabled = true;
 async function boot() {
   let repository;

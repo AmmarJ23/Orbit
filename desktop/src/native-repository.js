@@ -16,5 +16,9 @@ export async function createNativeRepository() {
     refresh: source => invoke('refresh_source', { source }),
     openSource: id => invoke('open_source_task', { id }),
     listVpns: () => invoke('list_vpns'),
+    saveNote: (id, title, body) => invoke('save_note', { id, title, body }),
+    setNotePinned: (id, pinned) => invoke('set_note_pinned', { id, pinned }),
+    setNoteLinks: (id, links) => invoke('set_note_links', { id, links }),
+    deleteNote: id => invoke('delete_note', { id }),
   };
 }
