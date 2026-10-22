@@ -230,6 +230,10 @@ Clicking a probe opens a callout like the planet one:
 - Link tags with each linked task's title and source icon. The tag for the planet this probe orbits is highlighted. Clicking a tag selects that planet, travelling to the other system if needed. Hidden tasks' tags are dimmed "Out of range". An unlinked probe shows "Unlinked".
 - **Open in Notes**, plus icon buttons for pin, link (inline searchable task picker), unlink (this probe's link only; hidden when resting) and delete (inline confirmation).
 
+### Notes in the planet callout — decided 22 October 2026
+
+The planet callout lists the notes orbiting that planet; clicking one selects its probe and opens the probe callout, and hovering one brightens its probes. The style is a preference (station Notes tab, "Notes on planets"): **Note chips** (default, coloured chips above the actions), **Moon dots** (coloured dots beside the planet name, title on hover), **Note list** (rows with the note's first line) or **Task and Notes tabs** (a Notes tab beside the task details). A planet with no notes shows nothing extra. Linking stays in the Notes tab and the probe callout.
+
 ### Notes tab
 
 Replaces the disabled Notes tab in the header and uses the Tasks tab's glass panel.

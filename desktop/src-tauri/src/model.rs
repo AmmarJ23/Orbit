@@ -158,6 +158,16 @@ pub enum ProbeReturn {
     Jump,
     Core,
 }
+// How the planet callout lists the notes orbiting it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PlanetNotes {
+    #[default]
+    Chips,
+    Dots,
+    List,
+    Tabs,
+}
 const fn on() -> bool {
     true
 }
@@ -198,6 +208,7 @@ pub struct Preferences {
     pub dock_style: DockStyle,
     pub probe_return: ProbeReturn,
     pub probe_blink: bool,
+    pub planet_notes: PlanetNotes,
 }
 // What a stored document may hold, including fields from older versions.
 #[derive(Deserialize)]
@@ -233,6 +244,8 @@ struct StoredPreferences {
     probe_return: ProbeReturn,
     #[serde(default = "on")]
     probe_blink: bool,
+    #[serde(default)]
+    planet_notes: PlanetNotes,
 }
 impl From<StoredPreferences> for Preferences {
     fn from(stored: StoredPreferences) -> Self {
@@ -256,6 +269,7 @@ impl From<StoredPreferences> for Preferences {
             dock_style: stored.dock_style,
             probe_return: stored.probe_return,
             probe_blink: stored.probe_blink,
+            planet_notes: stored.planet_notes,
         }
     }
 }
@@ -280,6 +294,7 @@ impl Default for Preferences {
             dock_style: DockStyle::Ring,
             probe_return: ProbeReturn::Flight,
             probe_blink: true,
+            planet_notes: PlanetNotes::Chips,
         }
     }
 }

@@ -12,6 +12,7 @@ import { createTasksView } from './tasks-view.js';
 import { createNotesView } from './notes-view.js';
 import { createProbes } from './probes.js';
 import { createProbeCallout } from './probe-callout.js';
+import { createPlanetNotes } from './planet-notes.js';
 
 const DEMO = import.meta.env.VITE_ORBIT_DEMO === 'true';
 document.body.dataset.mode = DEMO ? 'demo' : 'live';
@@ -431,6 +432,20 @@ const probes = createProbes({ scene, station, stationBody, stationMaterial, pane
     return 'active';
   } });
 let hoveredProbe = null;
+let hoveredNote = null; // A note hovered in the planet callout.
+let latestNotes = [];
+let notesPreferences = { style: 'chips', colors: 'palette' };
+// The planet callout lists its moons; picking one hands the selection to that probe.
+const planetNotes = createPlanetNotes({
+  onPick(noteId) {
+    const probe = selected && probes.find(noteId, selected.userData.task.id);
+    if (!probe) return;
+    hoveredNote = null;
+    select(null);
+    probeCallout.show(probe);
+  },
+  onHover(noteId) { hoveredNote = noteId; },
+});
 const shownAt = new THREE.Vector3();
 // Settled completed planets are drawn by their copy in the completed system while it is on screen.
 const displayPosition = planet => (view === 'completed' && homeOf(planet) === 'completed' && completionSystem.positionOf(planet, shownAt)) || planet.position;
@@ -506,6 +521,7 @@ function findOpenPhase(orbit) {
 }
 function select(planet) {
   if (planet) probeCallout.hide();
+  hoveredNote = null;
   selected = planet;
   $('selection').hidden = !planet;
   selectionRing.visible = !!planet;
@@ -517,6 +533,7 @@ function select(planet) {
 }
 function refreshSelection() {
   if (!selected) return;
+  planetNotes.render(selected.userData.task, latestNotes, notesPreferences);
   const { name, source, status, transfer, forming, completion } = selected.userData;
   const isWaiting = status === 'not-started';
   const isLeaving = transfer?.kind === 'out';
@@ -779,7 +796,7 @@ function updateProbeOverlays() {
   const chosen = probeCallout.probe;
   if (chosen && (!probes.alive(chosen) || (probes.settled(chosen) && probes.systemOf(chosen) !== view))) probeCallout.hide();
   if (probeCallout.probe) positionCallout($('probe-callout'), probes.lightOf(probeCallout.probe, probePoint));
-  probes.setFocus(hoveredProbe?.noteId ?? probeCallout.probe?.noteId ?? null);
+  probes.setFocus(hoveredProbe?.noteId ?? hoveredNote ?? probeCallout.probe?.noteId ?? null);
   const tag = $('probe-tag');
   const show = hoveredProbe && probes.alive(hoveredProbe) && hoveredProbe !== probeCallout.probe && !travel.active;
   tag.classList.toggle('visible', !!show);
@@ -815,6 +832,13 @@ $('probe-style').onchange = e => controller.savePreferences({ probeStyle: e.targ
 $('dock-style').onchange = e => controller.savePreferences({ dockStyle: e.target.value });
 $('probe-return').onchange = e => controller.savePreferences({ probeReturn: e.target.value });
 $('probe-blink').onchange = e => controller.savePreferences({ probeBlink: e.target.checked });
+const planetNotesNotes = {
+  chips: 'A planet’s notes show as coloured chips above its actions. Click one to select its probe.',
+  dots: 'A planet’s notes show as coloured dots beside its name. Hover for the title, click to select the probe.',
+  list: 'A planet’s notes show as rows with the first line of each note. Click one to select its probe.',
+  tabs: 'A planet’s callout gets a Notes tab beside its task details, listing the notes as chips.',
+};
+$('planet-notes-style').onchange = e => controller.savePreferences({ planetNotes: e.target.value });
 $('fullscreen').onclick = async () => {
   try {
     await toggleFullscreen();
@@ -1073,6 +1097,8 @@ function applySnapshot(snapshot, { settle, animate }) {
     }
   }
   probes.apply(snapshot, { animate: animate && !settle, settle });
+  latestNotes = snapshot.notes ?? [];
+  notesPreferences = { style: snapshot.preferences.planetNotes ?? 'chips', colors: snapshot.preferences.noteColors };
   const preferences = snapshot.preferences;
   paused = preferences.paused; speed = preferences.speed; frameLimit = preferences.frameLimit; showLabels = preferences.labels;
   travelStyle = travelStyles.some(([id]) => id === preferences.transition) ? preferences.transition : 'glide';
@@ -1094,6 +1120,8 @@ function applySnapshot(snapshot, { settle, animate }) {
   $('probe-style').value = preferences.probeStyle ?? 'dish'; $('dock-style').value = preferences.dockStyle ?? 'ring';
   $('probe-return').value = preferences.probeReturn ?? 'flight'; $('probe-blink').checked = preferences.probeBlink !== false;
   $('probe-return-note').textContent = probeReturnNotes[$('probe-return').value];
+  $('planet-notes-style').value = notesPreferences.style;
+  $('planet-notes-note').textContent = planetNotesNotes[notesPreferences.style] ?? '';
   probeCallout.render(snapshot);
   ui.render(snapshot); tasksView.render(snapshot); notesView.render(snapshot); refreshSelection(); updateLabels();
 }

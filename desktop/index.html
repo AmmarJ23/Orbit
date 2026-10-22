@@ -75,10 +75,13 @@
 </div>
 
 <aside id="selection" class="glass callout" hidden aria-label="Selected task">
+  <span id="planet-moon-dots" class="moon-dots" hidden></span>
   <h2 id="planet-name"></h2>
+  <div id="planet-tabs" class="planet-tabs" role="tablist" aria-label="Planet details" hidden><button type="button" role="tab" id="planet-tab-task" aria-selected="true">Task</button><button type="button" role="tab" id="planet-tab-notes" aria-selected="false"></button></div>
   <p class="callout-meta"><span id="planet-source"></span> · <span id="planet-status" class="status" role="status"></span></p>
   <p id="planet-description"></p><p id="ticket-details"></p>
   <button id="open-source" type="button" class="link" hidden>Open task ↗</button>
+  <div id="planet-notes" class="planet-notes" hidden></div>
   <div class="callout-actions"><button id="enter-orbit" class="primary">Enter orbit →</button><button id="complete-planet">Complete ✓</button></div>
   <p id="orbit-hint" class="orbit-hint"></p>
   <button id="clear" class="close" aria-label="Close">×</button>
@@ -162,6 +165,8 @@
     <label for="probe-return">Probe return<select id="probe-return" aria-describedby="probe-return-note"><option value="flight">Flight</option><option value="jump">Jump</option><option value="core">Core</option></select></label>
     <p class="note" id="probe-return-note"></p>
     <label class="check"><input id="probe-blink" type="checkbox" checked> Probe blink</label>
+    <label for="planet-notes-style">Notes on planets<select id="planet-notes-style" aria-describedby="planet-notes-note"><option value="chips">Note chips</option><option value="dots">Moon dots</option><option value="list">Note list</option><option value="tabs">Task and Notes tabs</option></select></label>
+    <p class="note" id="planet-notes-note"></p>
   </section>
 </section>
 

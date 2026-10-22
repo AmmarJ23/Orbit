@@ -436,6 +436,7 @@ export function createProbes({ scene, station, stationBody, stationMaterial, pan
       return raycaster.intersectObjects(hits, false)[0]?.object.userData.probe ?? null;
     },
     alive: probe => probes.includes(probe) && !probe.removing,
+    find: (noteId, link) => probes.find(probe => probe.noteId === noteId && probe.link === link && !probe.removing) ?? null,
     systemOf: probe => systemOf(probe.group.position),
     // Where the light sits, for tags and the callout.
     lightOf: (probe, out) => out.copy(lampAt).multiplyScalar(SIZE).applyQuaternion(probe.group.quaternion).add(probe.group.position),
