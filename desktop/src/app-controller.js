@@ -1,5 +1,5 @@
 export const defaultPreferences = { labels: true, stars: true, speed: 1, paused: false, frameLimit: 60, resolution: 1.5, nebula: true, rocks: true, completionPreview: true, blackSky: false, transition: 'glide', redmineVpn: null,
-  noteColors: 'palette', probeStyle: 'dish', dockStyle: 'ring', probeReturn: 'flight', probeBlink: true, planetNotes: 'chips', notesView: { layout: 'list', sort: 'edited', descending: true, editor: 'rich' } };
+  noteColors: 'palette', probeStyle: 'dish', dockStyle: 'ring', probeReturn: 'flight', probeBlink: true, planetNotes: 'chips', collapsedCards: 'icon', notesView: { layout: 'list', sort: 'edited', descending: true, editor: 'rich' } };
 
 // Own hydration/visibility ordering independently of DOM, Three.js and IPC.
 export function createAppController({ repository, view }) {

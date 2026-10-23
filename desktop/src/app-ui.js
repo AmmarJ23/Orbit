@@ -4,7 +4,6 @@ const $ = id => document.getElementById(id);
 // Side cards are a summary; the Tasks tab holds the full list.
 const CARD_ROWS = 8;
 const stateOrder = { 'in-progress': 0, 'not-started': 1, completed: 2 };
-const narrow = () => matchMedia('(max-width: 1279px)').matches;
 
 export function setupSettingsTabs() {
   const tabs = [...document.querySelectorAll('.testing-tabs [role=tab]')];
@@ -28,25 +27,27 @@ export function setupSettingsTabs() {
   return { showFirst: () => show(tabs[0]) };
 }
 
-// The rail only collapses on narrow windows; wide windows always show every card.
+// Each card folds to its head on any window size; which ones are folded is a
+// local convenience, so it lives in localStorage rather than the synced document.
+const COLLAPSED_KEY = 'orbit.collapsedCards';
 function setupSourceRail() {
   const cards = [...document.querySelectorAll('.source-card')];
-  for (const card of cards) {
+  let folded = [];
+  try { folded = JSON.parse(localStorage.getItem(COLLAPSED_KEY)) ?? []; } catch {}
+  const apply = (card, collapsed) => {
+    card.classList.toggle('collapsed', collapsed);
     const head = card.querySelector('.card-head');
-    head.onclick = () => {
-      if (!narrow()) return;
-      const open = !card.classList.contains('expanded');
-      for (const other of cards) { other.classList.remove('expanded'); other.querySelector('.card-head').setAttribute('aria-expanded', 'false'); }
-      card.classList.toggle('expanded', open);
-      head.setAttribute('aria-expanded', String(open));
+    head.setAttribute('aria-expanded', String(!collapsed));
+    head.title = collapsed ? card.querySelector('.card-title').textContent : '';
+  };
+  for (const card of cards) {
+    apply(card, folded.includes(card.dataset.source));
+    card.querySelector('.card-head').onclick = () => {
+      apply(card, !card.classList.contains('collapsed'));
+      try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(cards.filter(c => c.classList.contains('collapsed')).map(c => c.dataset.source))); } catch {}
     };
   }
-  const sync = () => { for (const card of cards) card.querySelector('.card-head').setAttribute('aria-expanded', String(!narrow() || card.classList.contains('expanded'))); };
-  addEventListener('resize', sync); sync();
-  document.addEventListener('pointerdown', event => {
-    if (narrow() && !event.target.closest('.sources, #task-menu')) for (const card of cards) card.classList.remove('expanded');
-  });
-  for (const scroller of [document.querySelector('.sources'), ...cards]) fadeOverflow(scroller);
+  fadeOverflow(document.querySelector('.sources'));
 }
 
 // Fades content into the scene on whichever edge has more to scroll. The fade

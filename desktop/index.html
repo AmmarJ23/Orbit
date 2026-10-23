@@ -16,7 +16,7 @@
 <section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1 id="system-title">Your active system</h1><p id="system-counts" role="status">—</p></section>
 <p class="scene-hint">Drag to rotate · Scroll to zoom · Click a planet</p>
 
-<div class="sources" aria-label="Task sources">
+<div class="sources" aria-label="Task sources" data-collapsed="icon">
   <section class="source-card glass" data-source="redmine">
     <button type="button" class="card-head" aria-expanded="false" aria-controls="redmine-body"><span class="source-icon redmine" aria-hidden="true"><img src="/src/assets/redmine.svg" alt=""></span><span class="card-title">Redmine</span><span class="card-count" id="redmine-count"></span></button>
     <div class="card-body" id="redmine-body">
@@ -162,6 +162,7 @@
     <label class="check"><input id="nebula" type="checkbox" checked> Nebula</label>
     <label class="check"><input id="rocks" type="checkbox" checked> Foreground rocks</label>
     <label class="check"><input id="completion-preview" type="checkbox" checked> Completed system preview</label>
+    <label for="collapsed-cards">Collapsed side cards<select id="collapsed-cards"><option value="icon">Icon only</option><option value="label">Icon and name</option></select></label>
   </section>
   <section id="notes-settings-panel" class="prefs-panel" role="tabpanel" aria-labelledby="notes-settings-tab" hidden>
     <label for="note-colors">Note colours<select id="note-colors"><option value="palette">Palette</option><option value="hashed">Hashed</option></select></label>

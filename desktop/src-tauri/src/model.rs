@@ -168,6 +168,14 @@ pub enum PlanetNotes {
     List,
     Tabs,
 }
+// What a collapsed side card keeps showing: just the source icon, or the icon with its name and count.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CollapsedCards {
+    #[default]
+    Icon,
+    Label,
+}
 const fn on() -> bool {
     true
 }
@@ -209,6 +217,7 @@ pub struct Preferences {
     pub probe_return: ProbeReturn,
     pub probe_blink: bool,
     pub planet_notes: PlanetNotes,
+    pub collapsed_cards: CollapsedCards,
 }
 // What a stored document may hold, including fields from older versions.
 #[derive(Deserialize)]
@@ -246,6 +255,8 @@ struct StoredPreferences {
     probe_blink: bool,
     #[serde(default)]
     planet_notes: PlanetNotes,
+    #[serde(default)]
+    collapsed_cards: CollapsedCards,
 }
 impl From<StoredPreferences> for Preferences {
     fn from(stored: StoredPreferences) -> Self {
@@ -270,6 +281,7 @@ impl From<StoredPreferences> for Preferences {
             probe_return: stored.probe_return,
             probe_blink: stored.probe_blink,
             planet_notes: stored.planet_notes,
+            collapsed_cards: stored.collapsed_cards,
         }
     }
 }
@@ -295,6 +307,7 @@ impl Default for Preferences {
             probe_return: ProbeReturn::Flight,
             probe_blink: true,
             planet_notes: PlanetNotes::Chips,
+            collapsed_cards: CollapsedCards::Icon,
         }
     }
 }

@@ -717,6 +717,7 @@ setDebug(debug);
 $('nebula').onchange = e => controller.savePreferences({ nebula: e.target.checked });
 $('rocks').onchange = e => controller.savePreferences({ rocks: e.target.checked });
 $('black-sky').onchange = e => controller.savePreferences({ blackSky: e.target.checked });
+$('collapsed-cards').onchange = e => controller.savePreferences({ collapsedCards: e.target.value });
 $('completion-preview').onchange = e => controller.savePreferences({ completionPreview: e.target.checked });
 
 // Station settings card: anchored beside the station, closed by Esc or an outside click.
@@ -1113,6 +1114,8 @@ function applySnapshot(snapshot, { settle, animate }) {
   const sky = preferences.blackSky ? skyColors.black : skyColors.navy;
   renderer.setClearColor(sky); completionSystem.setSky(sky); $('black-sky').checked = preferences.blackSky;
   document.body.classList.toggle('black-sky', preferences.blackSky);
+  const collapsedCards = preferences.collapsedCards === 'label' ? 'label' : 'icon';
+  document.querySelector('.sources').dataset.collapsed = collapsedCards; $('collapsed-cards').value = collapsedCards;
   completionSystem.allowPreview(preferences.completionPreview); $('completion-preview').checked = preferences.completionPreview;
   // Pulse the station until at least one source is connected.
   stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);

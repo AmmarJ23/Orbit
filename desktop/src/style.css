@@ -44,13 +44,19 @@ header>*{pointer-events:auto}
 .scene-hint{position:fixed;top:78px;right:var(--edge);margin:0;font-size:11px;color:#7c8ba9;pointer-events:none}
 
 /* Source cards */
-.sources{position:fixed;left:var(--edge);top:170px;width:280px;max-height:calc(100dvh - 170px - 96px);overflow:auto;display:flex;flex-direction:column;gap:10px;scrollbar-width:none;z-index:3}
-.source-card{flex-shrink:0;padding:4px 4px 6px}
+.sources{position:fixed;left:var(--edge);top:170px;width:max-content;max-height:calc(100dvh - 170px - 96px);overflow:auto;display:flex;flex-direction:column;gap:10px;scrollbar-width:none;z-index:3}
+.source-card{flex-shrink:0;width:280px;padding:4px 4px 6px}
+/* Folded cards keep only their head: the icon alone, or icon, name and count (Scenery preference). */
+.source-card.collapsed{padding:4px}.source-card.collapsed .card-body{display:none}
+.sources[data-collapsed=icon] .source-card.collapsed{width:46px}
+.sources[data-collapsed=icon] .source-card.collapsed :is(.card-title,.card-count){display:none}
+.sources[data-collapsed=icon] .source-card.collapsed .card-head{padding:7px}
+.sources[data-collapsed=label] .source-card.collapsed{width:max-content;min-width:160px;max-width:280px}
 /* Edge fade: app-ui.js masks whichever children cross a clipped edge, so they dissolve into the real scene behind.
    The mask reaches 64px past the box so card shadows are not cut off. */
 .edge-fade{-webkit-mask-image:linear-gradient(transparent var(--fade-a),#000 var(--fade-b),#000 var(--fade-c),transparent var(--fade-d));mask-image:linear-gradient(transparent var(--fade-a),#000 var(--fade-b),#000 var(--fade-c),transparent var(--fade-d));-webkit-mask-size:100% calc(100% + 128px);mask-size:100% calc(100% + 128px);-webkit-mask-position:0 -64px;mask-position:0 -64px;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-clip:no-clip;mask-clip:no-clip}
-.card-head{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:9px 10px;cursor:default}
-.card-head:hover:not(:disabled){background:transparent}
+.card-head{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:9px 10px;cursor:pointer}
+.card-head:hover:not(:disabled){background:var(--raised)}
 .card-title{font-size:14px;font-weight:600;flex:1;text-align:left}.card-count{color:var(--muted);font-size:12px}
 .source-icon{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;font-size:11px;font-weight:700;flex-shrink:0}
 .source-icon.redmine{background:#e5484d1f}.source-icon.clickup{background:#7b68ee24}.source-icon img{width:66%;height:66%;display:block}.source-icon.notes{background:#79bfff22;color:var(--primary)}.source-icon.notes svg{width:70%;height:70%}/* Shaded in the Orbit logo's facet blues. */
@@ -217,16 +223,11 @@ button.planet-note-chip{cursor:pointer;color:var(--text)}button.planet-note-chip
 .travel-markers span.destination{color:var(--primary-hover);border-color:#79bfffaa;box-shadow:0 0 14px #79bfff33}
 #error{position:fixed;left:var(--edge);right:var(--edge);bottom:76px;max-width:650px;margin:auto;padding:12px 16px;z-index:40;font-size:12px;line-height:1.5;background:var(--surface);border:1px solid var(--danger);border-radius:10px;box-shadow:0 12px 50px #0008;cursor:pointer}
 
-/* Below ~1280px the cards fold into a rail of source icons. */
+/* Below ~1280px the heading tightens so the cards start higher; cards fold the same way at every width. */
 @media(max-width:1279px){
   :root{--edge:20px}
   .intro .eyebrow,.scene-hint{display:none}.intro{top:66px}.intro h1{font-size:22px;margin-top:0}
-  .sources{top:132px;width:auto;max-height:calc(100dvh - 132px - 84px);overflow:visible}
-  .source-card{width:46px;padding:4px}
-  .card-head{cursor:pointer;padding:7px 7px}.card-head:hover:not(:disabled){background:var(--raised)}
-  .source-card:not(.expanded) :is(.card-title,.card-count,.card-body){display:none}
-  .source-card.expanded{width:280px;max-height:calc(100dvh - 220px);overflow:auto}
-  #completed-preview{left:calc(var(--edge) + 60px)}
+  .sources{top:132px;max-height:calc(100dvh - 132px - 84px)}
   .legend span:nth-child(2){display:none}
 }
 @media(max-width:900px){.legend{display:none}}
