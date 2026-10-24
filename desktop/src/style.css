@@ -336,7 +336,7 @@ body.zen-shift :is(header,.intro,.scene-hint,.sources,.system-switch,.legend,.co
 .note-card[aria-current=true]{border-color:#79bfff88;border-top-color:var(--note);background:#79bfff12}
 .note-card-head{display:flex;align-items:flex-start;gap:8px}.note-card-head strong{flex:1;min-width:0;font-weight:500;font-size:13px;overflow-wrap:anywhere}
 .note-pin-mark{display:inline-flex;color:var(--muted)}.note-pin-mark svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.task-row .note-pin-mark{margin-left:auto}
+.task-row .note-pin-mark{flex:none;margin-right:6px}
 .note-card-preview{flex:1;max-height:8.4em;overflow:hidden;font-size:12px;line-height:1.6;color:var(--muted);pointer-events:none;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
 .markdown.note-card-preview :is(h1,h2,h3,h4,h5,h6){font-size:12px;margin:0 0 2px}
 .markdown.note-card-preview :is(p,ul,ol,pre,blockquote){margin:0 0 4px}
