@@ -99,7 +99,7 @@ i{display:block;width:7px;height:7px;border-radius:50%}.comet{background:var(--p
 .control-cluster{display:flex;gap:6px}
 #zen svg,#labels-toggle svg,#fullscreen svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 #labels-toggle{color:var(--muted)}#labels-toggle svg,#fullscreen svg{stroke-linejoin:round}#fullscreen .exit,#fullscreen[aria-pressed=true] .enter{display:none}#fullscreen[aria-pressed=true] .exit{display:inline}
-.legend.off{display:none}#labels-toggle[aria-pressed=true]{color:var(--primary-hover);border-color:var(--primary)}
+.legend.off{display:none}#labels-toggle[aria-pressed=true]{color:var(--primary-hover)}#labels-toggle[aria-pressed=true] svg{filter:drop-shadow(0 0 3px #79bfffaa)}
 
 /* Selection callout, positioned beside the planet by scene.js */
 .callout{position:fixed;top:0;left:0;width:240px;padding:14px 16px;z-index:6;will-change:transform}
