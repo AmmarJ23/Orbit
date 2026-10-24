@@ -78,9 +78,9 @@
   <span id="planet-moon-dots" class="moon-dots" hidden></span>
   <h2 id="planet-name"></h2>
   <div id="planet-tabs" class="planet-tabs" role="tablist" aria-label="Planet details" hidden><button type="button" role="tab" id="planet-tab-task" aria-selected="true">Task</button><button type="button" role="tab" id="planet-tab-notes" aria-selected="false"></button></div>
-  <p class="callout-meta"><span id="planet-source"></span> · <span id="planet-status" class="status" role="status"></span></p>
-  <p id="planet-description"></p><p id="ticket-details"></p>
-  <button id="open-source" type="button" class="link" hidden>Open task ↗</button>
+  <p class="callout-meta"><span id="planet-source"></span><span class="meta-sep"> · </span><span id="planet-status" class="status" role="status"></span></p>
+  <p id="planet-description"></p>
+  <div id="ticket-line" class="ticket-line"><p id="ticket-details"></p><button id="open-source" type="button" class="link" hidden>Open task ↗</button></div>
   <div id="planet-notes" class="planet-notes" hidden></div>
   <div id="planet-note-picker" class="probe-picker planet-note-picker" role="dialog" aria-label="Link a note" hidden>
     <input id="planet-note-search" type="text" placeholder="Search notes" aria-label="Search notes" spellcheck="false" autocomplete="off">
@@ -163,6 +163,8 @@
     <label class="check"><input id="rocks" type="checkbox" checked> Foreground rocks</label>
     <label class="check"><input id="completion-preview" type="checkbox" checked> Completed system preview</label>
     <label class="check"><input id="legend" type="checkbox" checked> Status key</label>
+    <label for="planet-card">Planet card<select id="planet-card" aria-describedby="planet-card-note"><option value="compact">Compact</option><option value="hinted">Compact with hints</option><option value="tidy">Tidy</option><option value="classic">Classic</option></select></label>
+    <p class="note" id="planet-card-note"></p>
     <label for="collapsed-cards">Collapsed side cards<select id="collapsed-cards"><option value="icon">Icon only</option><option value="label">Icon and name</option></select></label>
   </section>
   <section id="notes-settings-panel" class="prefs-panel" role="tabpanel" aria-labelledby="notes-settings-tab" hidden>

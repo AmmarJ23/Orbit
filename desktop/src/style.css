@@ -111,6 +111,28 @@ i{display:block;width:7px;height:7px;border-radius:50%}.comet{background:var(--p
 #open-source{margin-top:8px;font-size:12px}
 .callout-actions{display:flex;gap:6px;margin-top:12px}.callout-actions button{flex:1;padding:7px 6px;font-size:11px}
 .orbit-hint{font-size:10px;line-height:1.5;color:var(--muted);margin:8px 0 0}
+/* Planet card layouts other than Classic: status first with a dot, details grouped, wider gaps between groups. */
+#selection:not([data-card=classic]) :is(#planet-description){display:none}
+#selection:not([data-card=classic]) .callout-meta{display:flex;align-items:baseline;gap:4px;margin-top:8px;font-size:12px}
+#selection:not([data-card=classic]) #planet-status{order:-2}#selection:not([data-card=classic]) .meta-sep{order:-1}
+#selection:not([data-card=classic]) #planet-source{color:var(--muted)}
+#selection:not([data-card=classic]) #planet-status::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:currentColor;vertical-align:1px}
+#selection:not([data-card=classic]) #ticket-details{margin-top:2px}
+#selection:not([data-card=classic]) .planet-notes{margin-top:14px}
+#selection:not([data-card=classic]) .callout-actions{margin-top:14px}
+#complete-planet.primary{order:-1}
+[data-card=tidy] .ticket-line{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:4px;margin-top:2px;font-size:11px}
+[data-card=tidy] .ticket-line #ticket-details{margin:0}
+[data-card=tidy] #open-source{margin:0;font-size:11px}
+[data-card=tidy] #ticket-details:not(:empty):has(+#open-source:not([hidden]))::after{content:" ·"}
+:is([data-card=compact],[data-card=hinted]) #planet-name{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+:is([data-card=compact],[data-card=hinted]) .meta-sep{display:none}
+:is([data-card=compact],[data-card=hinted]) .callout-meta{justify-content:space-between}
+:is([data-card=compact],[data-card=hinted]) #open-source{margin:0;font-size:12px}
+:is([data-card=compact],[data-card=hinted]) .orbit-hint{display:none}
+:is([data-card=compact],[data-card=hinted]) .callout-actions button:not(.primary){flex:0 0 auto;border-color:transparent;background:transparent;color:var(--muted)}
+:is([data-card=compact],[data-card=hinted]) .callout-actions button:not(.primary):hover:not(:disabled){color:var(--text);background:#1e2a4399}
+[data-card=hinted] .callout-actions button:not(.primary)[data-tip]::after{left:auto;right:0;transform:translate(0,2px)}[data-card=hinted] .callout-actions button:not(.primary)[data-tip]:is(:hover,:focus-visible)::after{transform:none}
 /* Notes orbiting the selected planet (chips, dots, list or a Notes tab) */
 #selection h2{margin-right:calc(22px + var(--moon-dots-width,0px))}
 .moon-dots{position:absolute;top:13px;right:38px;display:flex;align-items:center;gap:6px}

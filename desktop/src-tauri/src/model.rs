@@ -189,6 +189,16 @@ pub enum CollapsedCards {
     Icon,
     Label,
 }
+// How the selected planet's callout lays out its details and actions (desktop/src/scene.js).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PlanetCard {
+    Classic,
+    Tidy,
+    Hinted,
+    #[default]
+    Compact,
+}
 const fn on() -> bool {
     true
 }
@@ -234,6 +244,7 @@ pub struct Preferences {
     pub collapsed_cards: CollapsedCards,
     // The status key beside the scene controls.
     pub legend: bool,
+    pub planet_card: PlanetCard,
 }
 // What a stored document may hold, including fields from older versions.
 #[derive(Deserialize)]
@@ -277,6 +288,8 @@ struct StoredPreferences {
     collapsed_cards: CollapsedCards,
     #[serde(default = "on")]
     legend: bool,
+    #[serde(default)]
+    planet_card: PlanetCard,
 }
 impl From<StoredPreferences> for Preferences {
     fn from(stored: StoredPreferences) -> Self {
@@ -304,6 +317,7 @@ impl From<StoredPreferences> for Preferences {
             planet_notes: stored.planet_notes,
             collapsed_cards: stored.collapsed_cards,
             legend: stored.legend,
+            planet_card: stored.planet_card,
         }
     }
 }
@@ -332,6 +346,7 @@ impl Default for Preferences {
             planet_notes: PlanetNotes::Chips,
             collapsed_cards: CollapsedCards::Icon,
             legend: true,
+            planet_card: PlanetCard::Compact,
         }
     }
 }

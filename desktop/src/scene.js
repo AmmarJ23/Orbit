@@ -534,20 +534,42 @@ function select(planet) {
     closeSettings();
   }
 }
+// Planet card layouts (a Scenery preference). Classic gives every detail its own line; the others group them,
+// lead with the next step, and put De-orbit second. Compact caps the title, moves the task link beside the
+// status and drops the orbit hint; Hinted is Compact with the hint on each button's tooltip.
+let planetCard = 'compact';
+const planetCardNotes = {
+  compact: 'A three-line title, the task link beside its status and the next step as the main button. No orbit hints.',
+  hinted: 'Compact, with each button explaining itself on hover.',
+  tidy: 'The full title, details on two lines, the next step as the main button and the orbit hint below.',
+  classic: 'Every detail on its own line, with the orbit hint below.',
+};
+function setPlanetCard(layout) {
+  planetCard = planetCardNotes[layout] ? layout : 'compact';
+  $('selection').dataset.card = planetCard;
+  const compact = planetCard === 'compact' || planetCard === 'hinted';
+  (compact ? $('selection').querySelector('.callout-meta') : $('ticket-line')).append($('open-source'));
+  $('planet-card').value = planetCard; $('planet-card-note').textContent = planetCardNotes[planetCard];
+}
 function refreshSelection() {
   if (!selected) return;
   planetNotes.render(selected.userData.task, latestNotes, latestTasks, notesPreferences);
-  const { name, source, status, transfer, forming, completion } = selected.userData;
+  const { name, source, status, transfer, forming, completion, task } = selected.userData;
   const isWaiting = status === 'not-started';
   const isLeaving = transfer?.kind === 'out';
   const destination = source === 'Redmine' ? 'inner' : 'outer';
+  const classic = planetCard === 'classic', compact = planetCard === 'compact' || planetCard === 'hinted';
   $('planet-name').textContent = name;
+  $('planet-name').title = compact ? name : '';
   $('planet-source').textContent = source;
-  const saving = busyTasks.has(selected.userData.task?.id);
-  $('ticket-details').textContent = DEMO ? '' : '#' + selected.userData.task.externalId
-    + (selected.userData.task.project ? '\n' + selected.userData.task.project : '')
-    + (selected.userData.task.priority ? ' · ' + selected.userData.task.priority : '');
-  $('open-source').hidden = DEMO || !selected.userData.task.url;
+  const saving = busyTasks.has(task?.id);
+  const linked = !DEMO && !!task.url, project = [task?.project, task?.priority].filter(Boolean).join(' · ');
+  $('ticket-details').textContent = DEMO ? ''
+    : classic ? '#' + task.externalId + (task.project ? '\n' + task.project : '') + (task.priority ? ' · ' + task.priority : '')
+    : compact || linked ? project : [project, '#' + task.externalId].filter(Boolean).join(' · ');
+  $('open-source').hidden = !linked;
+  $('open-source').textContent = classic ? 'Open task ↗' : compact ? source + ' ↗' : '#' + task.externalId + ' ↗';
+  $('planet-source').hidden = compact && linked;
   // A settled planet can be reopened: the primary action returns it to Not started, the other straight to In progress.
   const settled = status === 'completed' && !completion;
   $('complete-planet').disabled = saving || !!forming || !!transfer || !!completion;
@@ -555,6 +577,15 @@ function refreshSelection() {
   $('enter-orbit').hidden = !!completion;
   $('enter-orbit').disabled = saving;
   $('enter-orbit').textContent = 'Reopen ↺';
+  const hinted = planetCard === 'hinted';
+  const tip = (id, text) => { if (hinted) $(id).dataset.tip = text; else delete $(id).dataset.tip; };
+  // Outside Classic, Complete leads once a task is under way.
+  const leadComplete = !classic && !isWaiting && status !== 'completed' && !completion;
+  $('complete-planet').classList.toggle('primary', leadComplete);
+  $('enter-orbit').classList.toggle('primary', !leadComplete);
+  tip('complete-planet', settled ? 'Return this task to In progress.' : 'Send this task through the black hole to the completed system.');
+  tip('enter-orbit', status === 'completed' ? 'Return this task to Not started.'
+    : isWaiting ? `Start this task and join the ${destination} orbit.` : 'Return this task to Not started and coast into the outer waiting ring.');
   if (completion || status === 'completed') {
     $('planet-status').textContent = completion ? 'Completing' : 'Completed';
     $('planet-description').textContent = `${completion ? 'Travelling to' : 'Settled in'} the completed system`;
@@ -719,6 +750,7 @@ $('rocks').onchange = e => controller.savePreferences({ rocks: e.target.checked 
 $('legend').onchange = e => controller.savePreferences({ legend: e.target.checked });
 $('black-sky').onchange = e => controller.savePreferences({ blackSky: e.target.checked });
 $('collapsed-cards').onchange = e => controller.savePreferences({ collapsedCards: e.target.value });
+$('planet-card').onchange = e => controller.savePreferences({ planetCard: e.target.value });
 $('completion-preview').onchange = e => controller.savePreferences({ completionPreview: e.target.checked });
 
 // Station settings card: anchored beside the station, closed by Esc or an outside click.
@@ -1128,6 +1160,7 @@ function applySnapshot(snapshot, { settle, animate }) {
   $('status-key').classList.toggle('off', preferences.legend === false); $('legend').checked = preferences.legend !== false;
   const collapsedCards = preferences.collapsedCards === 'label' ? 'label' : 'icon';
   document.querySelector('.sources').dataset.collapsed = collapsedCards; $('collapsed-cards').value = collapsedCards;
+  setPlanetCard(preferences.planetCard);
   completionSystem.allowPreview(preferences.completionPreview); $('completion-preview').checked = preferences.completionPreview;
   // Pulse the station until at least one source is connected.
   stationNeedsSetup = !DEMO && !Object.values(snapshot.sources ?? {}).some(info => info.connection?.connected);
