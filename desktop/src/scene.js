@@ -716,6 +716,7 @@ $('debug').onchange = e => setDebug(e.target.checked);
 setDebug(debug);
 $('nebula').onchange = e => controller.savePreferences({ nebula: e.target.checked });
 $('rocks').onchange = e => controller.savePreferences({ rocks: e.target.checked });
+$('legend').onchange = e => controller.savePreferences({ legend: e.target.checked });
 $('black-sky').onchange = e => controller.savePreferences({ blackSky: e.target.checked });
 $('collapsed-cards').onchange = e => controller.savePreferences({ collapsedCards: e.target.value });
 $('completion-preview').onchange = e => controller.savePreferences({ completionPreview: e.target.checked });
@@ -850,7 +851,8 @@ $('fullscreen').onclick = async () => {
   } catch (error) { console.error('Could not toggle fullscreen', error); }
 };
 async function updateFullscreenLabel() {
-  $('fullscreen').textContent = await isFullscreen() ? 'Exit fullscreen' : 'Fullscreen';
+  const full = await isFullscreen(), label = full ? 'Exit fullscreen' : 'Fullscreen';
+  $('fullscreen').setAttribute('aria-pressed', String(full)); $('fullscreen').setAttribute('aria-label', label); $('fullscreen').title = label;
 }
 // Zen mode hides every panel and control, leaving the scene, its labels and planet selection.
 // It is a temporary view, so it is never saved.
@@ -1114,6 +1116,7 @@ function applySnapshot(snapshot, { settle, animate }) {
   const sky = preferences.blackSky ? skyColors.black : skyColors.navy;
   renderer.setClearColor(sky); completionSystem.setSky(sky); $('black-sky').checked = preferences.blackSky;
   document.body.classList.toggle('black-sky', preferences.blackSky);
+  $('status-key').classList.toggle('off', preferences.legend === false); $('legend').checked = preferences.legend !== false;
   const collapsedCards = preferences.collapsedCards === 'label' ? 'label' : 'icon';
   document.querySelector('.sources').dataset.collapsed = collapsedCards; $('collapsed-cards').value = collapsedCards;
   completionSystem.allowPreview(preferences.completionPreview); $('completion-preview').checked = preferences.completionPreview;

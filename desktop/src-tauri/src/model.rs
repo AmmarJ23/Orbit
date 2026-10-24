@@ -218,6 +218,8 @@ pub struct Preferences {
     pub probe_blink: bool,
     pub planet_notes: PlanetNotes,
     pub collapsed_cards: CollapsedCards,
+    // The status key beside the scene controls.
+    pub legend: bool,
 }
 // What a stored document may hold, including fields from older versions.
 #[derive(Deserialize)]
@@ -257,6 +259,8 @@ struct StoredPreferences {
     planet_notes: PlanetNotes,
     #[serde(default)]
     collapsed_cards: CollapsedCards,
+    #[serde(default = "on")]
+    legend: bool,
 }
 impl From<StoredPreferences> for Preferences {
     fn from(stored: StoredPreferences) -> Self {
@@ -282,6 +286,7 @@ impl From<StoredPreferences> for Preferences {
             probe_blink: stored.probe_blink,
             planet_notes: stored.planet_notes,
             collapsed_cards: stored.collapsed_cards,
+            legend: stored.legend,
         }
     }
 }
@@ -308,6 +313,7 @@ impl Default for Preferences {
             probe_blink: true,
             planet_notes: PlanetNotes::Chips,
             collapsed_cards: CollapsedCards::Icon,
+            legend: true,
         }
     }
 }
