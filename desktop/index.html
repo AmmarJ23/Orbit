@@ -168,7 +168,9 @@
   <section id="notes-settings-panel" class="prefs-panel" role="tabpanel" aria-labelledby="notes-settings-tab" hidden>
     <label for="note-colors">Note colours<select id="note-colors"><option value="palette">Palette</option><option value="hashed">Hashed</option></select></label>
     <p class="note" id="note-colors-note">Palette uses eight hand-tuned colours, so the first notes never share one. Hashed gives every note its own hue.</p>
-    <div class="pair"><label>Probe style<select id="probe-style"><option value="dish">Dish probe</option><option value="satellite">Satellite</option></select></label><label>Station docks<select id="dock-style"><option value="ring">Ring berths</option><option value="rack">Mast rack</option></select></label></div>
+    <div class="pair"><label>Probe style<select id="probe-style"><option value="dish">Dish probe</option><option value="satellite">Satellite</option></select></label><label>Station docks<select id="dock-style" aria-describedby="dock-style-note"><optgroup label="On the station"><option value="ring">Ring berths</option><option value="rack">Mast rack</option></optgroup><optgroup label="On a tender"><option value="tug">Tug collar</option><option value="pier">Pier barge</option><option value="urchin">Hub urchin</option><option value="carrier">Deck carrier</option></optgroup></select></label></div>
+    <p class="note" id="dock-style-note"></p>
+    <label for="tender-tether" id="tender-tether-field" hidden>Tender line<select id="tender-tether"><option value="slack">Slack</option><option value="taut">Taut</option><option value="beads">Beaded</option></select></label>
     <label for="probe-return">Probe return<select id="probe-return" aria-describedby="probe-return-note"><option value="flight">Flight</option><option value="jump">Jump</option><option value="core">Core</option></select></label>
     <p class="note" id="probe-return-note"></p>
     <label class="check"><input id="probe-blink" type="checkbox" checked> Probe blink</label>

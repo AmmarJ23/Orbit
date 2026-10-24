@@ -834,7 +834,16 @@ const probeReturnNotes = {
   core: 'A probe unlinked from a done task dives into the completed core and emerges from the active one. Reduced motion uses Jump.',
 };
 $('probe-style').onchange = e => controller.savePreferences({ probeStyle: e.target.value });
+const dockStyleNotes = {
+  ring: 'Unlinked probes rest on berths around the turning habitat ring.',
+  rack: 'Unlinked probes rest staggered up and down the station mast.',
+  tug: 'A small tug on a line below the station holds the probes on its turning collar.',
+  pier: 'A long barge on a line below the station holds the probes down both sides, like boats at a jetty.',
+  urchin: 'A faceted hub on a line below the station holds a probe at the tip of each arm. It tumbles slowly.',
+  carrier: 'A flat carrier on a line below the station holds the probes upright on its deck. It never turns.',
+};
 $('dock-style').onchange = e => controller.savePreferences({ dockStyle: e.target.value });
+$('tender-tether').onchange = e => controller.savePreferences({ tenderTether: e.target.value });
 $('probe-return').onchange = e => controller.savePreferences({ probeReturn: e.target.value });
 $('probe-blink').onchange = e => controller.savePreferences({ probeBlink: e.target.checked });
 const planetNotesNotes = {
@@ -1128,6 +1137,8 @@ function applySnapshot(snapshot, { settle, animate }) {
   $('speed').value = speed; $('speed-value').textContent = speed.toFixed(1) + '×';
   $('frame-limit').value = frameLimit; $('resolution').value = preferences.resolution; $('stars').checked = preferences.stars;
   $('probe-style').value = preferences.probeStyle ?? 'dish'; $('dock-style').value = preferences.dockStyle ?? 'ring';
+  $('dock-style-note').textContent = dockStyleNotes[$('dock-style').value] ?? '';
+  $('tender-tether-field').hidden = ['ring', 'rack'].includes($('dock-style').value); $('tender-tether').value = preferences.tenderTether ?? 'slack';
   $('probe-return').value = preferences.probeReturn ?? 'flight'; $('probe-blink').checked = preferences.probeBlink !== false;
   $('probe-return-note').textContent = probeReturnNotes[$('probe-return').value];
   $('planet-notes-style').value = notesPreferences.style;

@@ -47,24 +47,139 @@ export function createProbes({ scene, station, stationBody, stationMaterial, pan
   const lampAt = new THREE.Vector3(0, 0.1, -0.005);
   const hitGeometry = new THREE.SphereGeometry(0.24, 6, 4);
 
-  // Berths: ten around the habitat ring (turning with it) or staggered up and down the mast.
-  // Each faces outward; an empty one shows a faint marker.
+  // Berths: ten around the habitat ring (turning with it), staggered up and down the mast, or on
+  // a tender tethered below the station. Each faces outward; an empty one shows a faint marker.
   const berths = { ring: [], rack: [] };
   const markerMaterial = new THREE.SpriteMaterial({ map: haloTexture, color: 0x79bfff, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending });
-  function berth(parent, angle, radius, y) {
+  const origin = new THREE.Vector3();
+  function berth(parent, position, outward) {
     const point = new THREE.Object3D();
-    point.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
-    point.rotation.y = Math.PI / 2 - angle;
+    point.position.copy(position);
+    face(point.quaternion, origin, outward);
     const marker = new THREE.Sprite(markerMaterial);
     marker.scale.setScalar(0.13);
     point.add(marker);
     parent.add(point);
     return point;
   }
-  for (let i = 0; i < DOCK_SLOTS; i++) berths.ring.push(berth(stationBody, i / DOCK_SLOTS * Math.PI * 2, 1.12, 0));
+  const around = (angle, radius, y) => [new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius), new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle))];
+  for (let i = 0; i < DOCK_SLOTS; i++) berths.ring.push(berth(stationBody, ...around(i / DOCK_SLOTS * Math.PI * 2, 1.12, 0)));
   for (let i = 0; i < DOCK_SLOTS; i++) {
     const upper = i < 7;
-    berths.rack.push(berth(station, i * 2.39996, 0.36, upper ? 0.6 + i * 0.12 : -0.58 - (i - 7) * 0.12));
+    berths.rack.push(berth(station, ...around(i * 2.39996, 0.36, upper ? 0.6 + i * 0.12 : -0.58 - (i - 7) * 0.12)));
+  }
+
+  // Tenders: a small craft on a line from the foot of the mast, in the station's metal. Each has
+  // ten berths a little proud of its hull, a hitch for the line, and an optional slow turn.
+  const part = (geometry, material = stationMaterial) => new THREE.Mesh(geometry, material);
+  const proud = (group, position, outward) => berth(group, position.clone().addScaledVector(outward.clone().normalize(), 0.06), outward);
+  const tenderShapes = {
+    // A short hull with a turning collar, like a small copy of the habitat ring.
+    tug(group, list) {
+      const collar = new THREE.Group();
+      group.add(part(new THREE.CylinderGeometry(0.15, 0.15, 0.62, 6).rotateZ(Math.PI / 2)));
+      group.add(part(new THREE.ConeGeometry(0.15, 0.18, 6).rotateZ(-Math.PI / 2).translate(0.4, 0, 0)));
+      group.add(part(new THREE.CylinderGeometry(0.1, 0.13, 0.1, 6).rotateZ(Math.PI / 2).translate(-0.36, 0, 0), panelMaterial));
+      collar.add(part(new THREE.TorusGeometry(0.36, 0.05, 4, 10).rotateY(Math.PI / 2)));
+      for (let i = 0; i < DOCK_SLOTS; i++) {
+        const a = i / DOCK_SLOTS * Math.PI * 2, out = new THREE.Vector3(0, Math.cos(a), Math.sin(a));
+        list.push(proud(collar, out.clone().multiplyScalar(0.36), out));
+      }
+      group.add(collar);
+      return { hitch: new THREE.Vector3(0.49, 0, 0), turn: time => { collar.rotation.x = time * 0.35; } };
+    },
+    // A long truss with five berths down each side, like boats at a jetty.
+    pier(group, list) {
+      for (const y of [-0.05, 0.05]) for (const z of [-0.06, 0.06]) group.add(part(new THREE.BoxGeometry(1.5, 0.025, 0.025).translate(0, y, z)));
+      for (let i = 0; i < 6; i++) group.add(part(new THREE.BoxGeometry(0.025, 0.12, 0.14).translate(-0.7 + i * 0.28, 0, 0)));
+      group.add(part(new THREE.BoxGeometry(0.22, 0.18, 0.2).translate(0.82, 0, 0)));
+      group.add(part(new THREE.BoxGeometry(0.03, 0.4, 0.3).translate(-0.82, 0, 0), panelMaterial));
+      for (let i = 0; i < DOCK_SLOTS; i++) {
+        const side = i < 5 ? 1 : -1;
+        list.push(proud(group, new THREE.Vector3(-0.56 + (i % 5) * 0.28, 0, side * 0.07), new THREE.Vector3(0, 0, side)));
+      }
+      return { hitch: new THREE.Vector3(0.93, 0, 0) };
+    },
+    // A faceted core with ten arms, one berth at each tip, tumbling slowly.
+    urchin(group, list) {
+      const body = new THREE.Group();
+      body.add(part(new THREE.IcosahedronGeometry(0.2, 0)));
+      for (let i = 0; i < DOCK_SLOTS; i++) {
+        const y = 1 - (i + 0.5) / DOCK_SLOTS * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996;
+        const out = new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
+        const arm = part(new THREE.CylinderGeometry(0.014, 0.014, 0.28, 4));
+        arm.position.copy(out).multiplyScalar(0.3);
+        arm.quaternion.setFromUnitVectors(up, out);
+        const pad = part(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 6), panelMaterial);
+        pad.position.copy(out).multiplyScalar(0.44);
+        pad.quaternion.copy(arm.quaternion);
+        body.add(arm, pad);
+        list.push(proud(body, out.clone().multiplyScalar(0.45), out));
+      }
+      group.add(body);
+      return { hitch: new THREE.Vector3(0, 0.2, 0), turn: time => { body.rotation.set(time * 0.08, time * 0.25, 0); } };
+    },
+    // A flat carrier under a solar sail; probes stand upright on two rows of deck pads.
+    carrier(group, list) {
+      group.add(part(new THREE.BoxGeometry(1.1, 0.12, 0.42)));
+      group.add(part(new THREE.CylinderGeometry(0.06, 0.21, 0.24, 4).rotateZ(Math.PI / 2).rotateX(Math.PI / 4).translate(0.66, 0, 0)));
+      group.add(part(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5).translate(-0.6, 0.2, 0)));
+      group.add(part(new THREE.BoxGeometry(0.03, 0.34, 0.6).translate(-0.6, 0.38, 0), panelMaterial));
+      for (let i = 0; i < DOCK_SLOTS; i++) {
+        const at = new THREE.Vector3(-0.4 + (i % 5) * 0.2, 0.07, (i < 5 ? 1 : -1) * 0.11);
+        group.add(part(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 6).translate(at.x, at.y, at.z), panelMaterial));
+        list.push(proud(group, at, up));
+      }
+      return { hitch: new THREE.Vector3(0.78, 0, 0) };
+    },
+  };
+  const TENDER_SCALE = 1.3;
+  const tenderRest = new THREE.Vector3(-2.45, -1.5, 0.35).add(station.position);
+  const tenders = {};
+  for (const [name, shape] of Object.entries(tenderShapes)) {
+    const group = new THREE.Group();
+    berths[name] = [];
+    const { hitch, turn = () => {} } = shape(group, berths[name]);
+    group.scale.setScalar(TENDER_SCALE);
+    group.rotation.y = name === 'urchin' ? 0 : -0.35;
+    group.visible = false;
+    scene.add(group);
+    tenders[name] = { group, hitch, turn };
+  }
+  // The line hangs from the foot of the mast: slack with a slow sway, taut, or slack with beads.
+  const TETHER_POINTS = 40, BEADS = 9;
+  const tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: TETHER_POINTS }, () => new THREE.Vector3())), new THREE.LineBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.7 }));
+  const beadGeometry = new THREE.OctahedronGeometry(0.025, 0);
+  const beads = Array.from({ length: BEADS }, () => part(beadGeometry));
+  tether.visible = false;
+  scene.add(tether, ...beads);
+  const mastFoot = new THREE.Vector3(), hitchPoint = new THREE.Vector3(), sagPoint = new THREE.Vector3();
+  const tetherCurve = new THREE.QuadraticBezierCurve3(mastFoot, sagPoint, hitchPoint);
+  let tetherStyle = 'slack';
+  function updateTender(time) {
+    const tender = tenders[dockStyle];
+    for (const other of Object.values(tenders)) other.group.visible = other === tender;
+    tether.visible = !!tender;
+    beads.forEach(bead => { bead.visible = !!tender && tetherStyle === 'beads'; });
+    if (!tender) return;
+    tender.group.position.copy(tenderRest);
+    tender.group.position.x += Math.sin(time * 0.4) * 0.06;
+    tender.group.position.y += Math.sin(time * 0.55) * 0.05;
+    tender.turn(time);
+    tender.group.updateMatrixWorld(true);
+    station.updateMatrixWorld(true);
+    station.localToWorld(mastFoot.set(0, -1, 0));
+    tender.group.localToWorld(hitchPoint.copy(tender.hitch));
+    sagPoint.copy(mastFoot).add(hitchPoint).multiplyScalar(0.5);
+    if (tetherStyle !== 'taut') sagPoint.y -= 0.35 + Math.sin(time * 0.7) * 0.05;
+    const attribute = tether.geometry.attributes.position;
+    for (let i = 0; i < TETHER_POINTS; i++) {
+      tetherCurve.getPoint(i / (TETHER_POINTS - 1), offset);
+      attribute.setXYZ(i, offset.x, offset.y, offset.z);
+    }
+    attribute.needsUpdate = true;
+    tether.geometry.computeBoundingSphere();
+    beads.forEach((bead, i) => tetherCurve.getPoint((i + 1) / (BEADS + 1), bead.position));
   }
   // The belt has a very faint dotted guide, shown only while a probe drifts there.
   const guidePoints = Array.from({ length: 240 }, (_, i) => {
@@ -220,7 +335,8 @@ export function createProbes({ scene, station, stationBody, stationMaterial, pan
     const mode = preferences.noteColors;
     style = preferences.probeStyle === 'satellite' ? 'satellite' : 'dish';
     const previousDocks = dockStyle;
-    dockStyle = preferences.dockStyle === 'rack' ? 'rack' : 'ring';
+    dockStyle = Object.hasOwn(berths, preferences.dockStyle) ? preferences.dockStyle : 'ring';
+    tetherStyle = ['slack', 'taut', 'beads'].includes(preferences.tenderTether) ? preferences.tenderTether : 'slack';
     // A dock style switch arrives as a quiet preference save, but docked probes still fly over.
     const restyle = ready && !settle && previousDocks !== dockStyle;
     returnStyle = ['flight', 'jump', 'core'].includes(preferences.probeReturn) ? preferences.probeReturn : 'flight';
@@ -415,6 +531,7 @@ export function createProbes({ scene, station, stationBody, stationMaterial, pan
   // explosions answer the user's own actions and run on real time.
   function update(delta, step, time) {
     clock += delta;
+    updateTender(time);
     for (const probe of [...probes]) updateProbe(probe, delta, step, time);
     updateBursts(delta);
     const occupied = new Set(probes.filter(probe => probe.place?.kind === 'dock' && !probe.removing).map(probe => probe.place.slot));

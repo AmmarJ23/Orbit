@@ -141,13 +141,26 @@ pub enum ProbeStyle {
     Dish,
     Satellite,
 }
-// Where docked probes rest on the station: around the habitat ring or up the mast.
+// Where docked probes rest: around the habitat ring, up the mast, or on a tender tethered below.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DockStyle {
     #[default]
     Ring,
     Rack,
+    Tug,
+    Pier,
+    Urchin,
+    Carrier,
+}
+// How the line between the station and its tender hangs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TenderTether {
+    #[default]
+    Slack,
+    Taut,
+    Beads,
 }
 // How a probe crosses between the completed and active systems.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -214,6 +227,7 @@ pub struct Preferences {
     pub notes_view: NotesView,
     pub probe_style: ProbeStyle,
     pub dock_style: DockStyle,
+    pub tender_tether: TenderTether,
     pub probe_return: ProbeReturn,
     pub probe_blink: bool,
     pub planet_notes: PlanetNotes,
@@ -252,6 +266,8 @@ struct StoredPreferences {
     #[serde(default)]
     dock_style: DockStyle,
     #[serde(default)]
+    tender_tether: TenderTether,
+    #[serde(default)]
     probe_return: ProbeReturn,
     #[serde(default = "on")]
     probe_blink: bool,
@@ -282,6 +298,7 @@ impl From<StoredPreferences> for Preferences {
             notes_view: stored.notes_view,
             probe_style: stored.probe_style,
             dock_style: stored.dock_style,
+            tender_tether: stored.tender_tether,
             probe_return: stored.probe_return,
             probe_blink: stored.probe_blink,
             planet_notes: stored.planet_notes,
@@ -309,6 +326,7 @@ impl Default for Preferences {
             notes_view: NotesView::default(),
             probe_style: ProbeStyle::Dish,
             dock_style: DockStyle::Ring,
+            tender_tether: TenderTether::Slack,
             probe_return: ProbeReturn::Flight,
             probe_blink: true,
             planet_notes: PlanetNotes::Chips,
